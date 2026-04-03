@@ -111,7 +111,11 @@ func (r *Run) Strike(val bool) *Run {
 
 // AddTab add a tab in front of the run
 func (r *Run) AddTab() *Run {
-	r.Children = append(r.Children, &Tab{})
+	tab := &Tab{}
+	r.Children = append(r.Children, tab)
+	if len(r.ordered) > 0 {
+		r.ordered = append(r.ordered, tab)
+	}
 	return r
 }
 

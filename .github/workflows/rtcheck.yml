@@ -1,0 +1,32 @@
+name: Rtcheck
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  rtcheck:
+    name: roundtrip-structure-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@master
+        with:
+          go-version: "1.20"
+
+      - name: Check out code
+        uses: actions/checkout@master
+
+      - name: Run rtcheck
+        run: |
+          go run ./cmd/rtcheck \
+            --in ./testdata/roundtrip_unknown_nodes \
+            --out /tmp/rtcheck-out \
+            --report /tmp/rtcheck-report.json
+
+      - name: Upload rtcheck report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtcheck-report
+          path: /tmp/rtcheck-report.json

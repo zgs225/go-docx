@@ -40,8 +40,14 @@ type Run struct {
 	InstrText string `xml:"w:instrText,omitempty"`
 
 	Children []interface{}
+	ordered  []interface{}
 
 	file *Docx
+}
+
+type runInstrText struct {
+	XMLName xml.Name `xml:"w:instrText,omitempty"`
+	Text    string   `xml:",chardata"`
 }
 
 // UnmarshalXML ...
@@ -73,7 +79,12 @@ func (r *Run) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 				return err
 			}
 			if child != nil {
-				r.Children = append(r.Children, child)
+				r.ordered = append(r.ordered, child)
+				switch child.(type) {
+				case *RunProperties, *runInstrText, *RawXMLNode:
+				default:
+					r.Children = append(r.Children, child)
+				}
 			}
 		}
 	}
@@ -90,7 +101,7 @@ func (r *Run) parse(d *xml.Decoder, tt xml.StartElement) (child interface{}, err
 			return nil, err
 		}
 		r.RunProperties = &value
-		return nil, nil
+		return r.RunProperties, nil
 	case "instrText":
 		var value string
 		err = d.DecodeElement(&value, &tt)
@@ -98,7 +109,7 @@ func (r *Run) parse(d *xml.Decoder, tt xml.StartElement) (child interface{}, err
 			return nil, err
 		}
 		r.InstrText = value
-		return nil, nil
+		return &runInstrText{Text: value}, nil
 	case "t":
 		var value Text
 		err = d.DecodeElement(&value, &tt)
@@ -175,9 +186,53 @@ func (r *Run) parse(d *xml.Decoder, tt xml.StartElement) (child interface{}, err
 			}
 		}
 	default:
-		err = d.Skip() // skip unsupported tags
+		child, err = decodeRawXMLNode(d, tt)
 	}
 	return
+}
+
+// MarshalXML keeps run child order stable for round-trip writeback.
+func (r *Run) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name = xml.Name{Local: "w:r"}
+	if r.Space != "" {
+		start.Attr = append(start.Attr, xml.Attr{
+			Name:  xml.Name{Local: "xml:space"},
+			Value: r.Space,
+		})
+	}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if len(r.ordered) > 0 {
+		for _, child := range r.ordered {
+			if child == nil {
+				continue
+			}
+			if err := e.Encode(child); err != nil {
+				return err
+			}
+		}
+		return e.EncodeToken(start.End())
+	}
+	if r.RunProperties != nil {
+		if err := e.Encode(r.RunProperties); err != nil {
+			return err
+		}
+	}
+	if r.InstrText != "" {
+		if err := e.Encode(&runInstrText{Text: r.InstrText}); err != nil {
+			return err
+		}
+	}
+	for _, child := range r.Children {
+		if child == nil {
+			continue
+		}
+		if err := e.Encode(child); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 // KeepElements keep named elems amd removes others

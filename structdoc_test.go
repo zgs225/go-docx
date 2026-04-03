@@ -30,11 +30,11 @@ const decoded_doc_2 = `<w:document xmlns:wpc="http://schemas.microsoft.com/offic
 
 func TestUnmarshalPlainStructure(t *testing.T) {
 	testCases := []struct {
-		content       string
-		numParagraphs int
+		content  string
+		numItems int
 	}{
 		{decoded_doc_1, 6},
-		{decoded_doc_2, 15},
+		{decoded_doc_2, 16},
 	}
 	for _, tc := range testCases {
 		doc := Document{
@@ -46,8 +46,8 @@ func TestUnmarshalPlainStructure(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(doc.Body.Items) != tc.numParagraphs {
-			t.Fatalf("We expected %d paragraphs, we got %d", tc.numParagraphs, len(doc.Body.Items))
+		if len(doc.Body.Items) != tc.numItems {
+			t.Fatalf("We expected %d body items, we got %d", tc.numItems, len(doc.Body.Items))
 		}
 		for i, it := range doc.Body.Items {
 			switch v := it.(type) {

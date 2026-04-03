@@ -187,6 +187,7 @@ type Paragraph struct {
 
 	Properties *ParagraphProperties
 	Children   []interface{}
+	ordered    []interface{}
 
 	file *Docx
 }
@@ -258,6 +259,7 @@ func (p *Paragraph) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 		}
 	}*/
 	children := make([]interface{}, 0, 64)
+	ordered := make([]interface{}, 0, 64)
 	for {
 		t, err := d.Token()
 		if err == io.EOF {
@@ -306,19 +308,56 @@ func (p *Paragraph) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				p.Properties = &value
+				ordered = append(ordered, p.Properties)
 				continue
 			default:
-				err = d.Skip() // skip unsupported tags
+				elem, err = decodeRawXMLNode(d, tt)
 				if err != nil {
 					return err
 				}
-				continue
 			}
-			children = append(children, elem)
+			ordered = append(ordered, elem)
+			if _, ok := elem.(*RawXMLNode); !ok {
+				children = append(children, elem)
+			}
 		}
 	}
 	p.Children = children
+	p.ordered = ordered
 	return nil
+}
+
+// MarshalXML keeps paragraph child order stable for round-trip writeback.
+func (p *Paragraph) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name = xml.Name{Local: "w:p"}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if len(p.ordered) > 0 {
+		for _, item := range p.ordered {
+			if item == nil {
+				continue
+			}
+			if err := e.Encode(item); err != nil {
+				return err
+			}
+		}
+		return e.EncodeToken(start.End())
+	}
+	if p.Properties != nil {
+		if err := e.Encode(p.Properties); err != nil {
+			return err
+		}
+	}
+	for _, child := range p.Children {
+		if child == nil {
+			continue
+		}
+		if err := e.Encode(child); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 // KeepElements keep named elems amd removes others

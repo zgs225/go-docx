@@ -98,14 +98,32 @@ func (b *Body) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 				}
 				b.Items = append(b.Items, &value)
 			default:
-				err = d.Skip() // skip unsupported tags
+				value, err := decodeRawXMLNode(d, tt)
 				if err != nil {
 					return err
 				}
+				b.Items = append(b.Items, value)
 			}
 		}
 	}
 	return nil
+}
+
+// MarshalXML keeps body children write order stable, including preserved raw nodes.
+func (b *Body) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name = xml.Name{Local: "w:body"}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	for _, item := range b.Items {
+		if item == nil {
+			continue
+		}
+		if err := e.Encode(item); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 // KeepElements keep named elems amd removes others

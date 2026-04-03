@@ -32,6 +32,7 @@ type Table struct {
 	TableProperties *WTableProperties
 	TableGrid       *WTableGrid
 	TableRows       []*WTableRow
+	ordered         []interface{}
 
 	file *Docx
 }
@@ -80,28 +81,69 @@ func (t *Table) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				t.TableRows = append(t.TableRows, &value)
+				t.ordered = append(t.ordered, &value)
 			case "tblPr":
 				t.TableProperties = new(WTableProperties)
 				err = d.DecodeElement(t.TableProperties, &tt)
 				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
 					return err
 				}
+				t.ordered = append(t.ordered, t.TableProperties)
 			case "tblGrid":
 				t.TableGrid = new(WTableGrid)
 				err = d.DecodeElement(t.TableGrid, &tt)
 				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
 					return err
 				}
+				t.ordered = append(t.ordered, t.TableGrid)
 			default:
-				err = d.Skip() // skip unsupported tags
+				value, err := decodeRawXMLNode(d, tt)
 				if err != nil {
 					return err
 				}
-				continue
+				t.ordered = append(t.ordered, value)
 			}
 		}
 	}
 	return nil
+}
+
+// MarshalXML keeps table child order stable for round-trip writeback.
+func (t *Table) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name = xml.Name{Local: "w:tbl"}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if len(t.ordered) > 0 {
+		for _, item := range t.ordered {
+			if item == nil {
+				continue
+			}
+			if err := e.Encode(item); err != nil {
+				return err
+			}
+		}
+		return e.EncodeToken(start.End())
+	}
+	if t.TableProperties != nil {
+		if err := e.Encode(t.TableProperties); err != nil {
+			return err
+		}
+	}
+	if t.TableGrid != nil {
+		if err := e.Encode(t.TableGrid); err != nil {
+			return err
+		}
+	}
+	for _, tr := range t.TableRows {
+		if tr == nil {
+			continue
+		}
+		if err := e.Encode(tr); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 // WTableProperties is an element that represents the properties of a table in Word document.
@@ -406,6 +448,7 @@ type WTableRow struct {
 	// RsidTr             string   `xml:"w:rsidTr,attr,omitempty"`
 	TableRowProperties *WTableRowProperties
 	TableCells         []*WTableCell
+	ordered            []interface{}
 
 	file *Docx
 }
@@ -442,6 +485,7 @@ func (w *WTableRow) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
 					return err
 				}
+				w.ordered = append(w.ordered, w.TableRowProperties)
 			case "tc":
 				var value WTableCell
 				value.file = w.file
@@ -450,16 +494,50 @@ func (w *WTableRow) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				w.TableCells = append(w.TableCells, &value)
+				w.ordered = append(w.ordered, &value)
 			default:
-				err = d.Skip() // skip unsupported tags
+				value, err := decodeRawXMLNode(d, tt)
 				if err != nil {
 					return err
 				}
-				continue
+				w.ordered = append(w.ordered, value)
 			}
 		}
 	}
 	return nil
+}
+
+// MarshalXML keeps table row child order stable for round-trip writeback.
+func (w *WTableRow) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name = xml.Name{Local: "w:tr"}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if len(w.ordered) > 0 {
+		for _, item := range w.ordered {
+			if item == nil {
+				continue
+			}
+			if err := e.Encode(item); err != nil {
+				return err
+			}
+		}
+		return e.EncodeToken(start.End())
+	}
+	if w.TableRowProperties != nil {
+		if err := e.Encode(w.TableRowProperties); err != nil {
+			return err
+		}
+	}
+	for _, cell := range w.TableCells {
+		if cell == nil {
+			continue
+		}
+		if err := e.Encode(cell); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 // WTableRowProperties represents the properties of a row within a table.
@@ -537,6 +615,7 @@ type WTableCell struct {
 	TableCellProperties *WTableCellProperties
 	Paragraphs          []*Paragraph `xml:"w:p,omitempty"`
 	Tables              []*Table     `xml:"w:tbl,omitempty"`
+	ordered             []interface{}
 
 	file *Docx
 }
@@ -562,6 +641,7 @@ func (c *WTableCell) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				c.Paragraphs = append(c.Paragraphs, &value)
+				c.ordered = append(c.ordered, &value)
 			case "tcPr":
 				var value WTableCellProperties
 				err = d.DecodeElement(&value, &tt)
@@ -569,6 +649,7 @@ func (c *WTableCell) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				c.TableCellProperties = &value
+				c.ordered = append(c.ordered, c.TableCellProperties)
 			case "tbl":
 				var table Table
 				table.file = c.file
@@ -576,16 +657,58 @@ func (c *WTableCell) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				c.Tables = append(c.Tables, &table)
+				c.ordered = append(c.ordered, &table)
 			default:
-				err = d.Skip() // skip unsupported tags
+				value, err := decodeRawXMLNode(d, tt)
 				if err != nil {
 					return err
 				}
-				continue
+				c.ordered = append(c.ordered, value)
 			}
 		}
 	}
 	return nil
+}
+
+// MarshalXML keeps table cell child order stable for round-trip writeback.
+func (c *WTableCell) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name = xml.Name{Local: "w:tc"}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if len(c.ordered) > 0 {
+		for _, item := range c.ordered {
+			if item == nil {
+				continue
+			}
+			if err := e.Encode(item); err != nil {
+				return err
+			}
+		}
+		return e.EncodeToken(start.End())
+	}
+	if c.TableCellProperties != nil {
+		if err := e.Encode(c.TableCellProperties); err != nil {
+			return err
+		}
+	}
+	for _, p := range c.Paragraphs {
+		if p == nil {
+			continue
+		}
+		if err := e.Encode(p); err != nil {
+			return err
+		}
+	}
+	for _, t := range c.Tables {
+		if t == nil {
+			continue
+		}
+		if err := e.Encode(t); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 // WTableCellProperties represents the properties of a table cell.

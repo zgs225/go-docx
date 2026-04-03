@@ -32,10 +32,14 @@ func (f *Docx) AddParagraph() *Paragraph {
 
 // AddParagraph adds a new paragraph
 func (c *WTableCell) AddParagraph() *Paragraph {
-	c.Paragraphs = append(c.Paragraphs, &Paragraph{
+	p := &Paragraph{
 		Children: make([]interface{}, 0, 64),
 		file:     c.file,
-	})
+	}
+	c.Paragraphs = append(c.Paragraphs, p)
+	if len(c.ordered) > 0 {
+		c.ordered = append(c.ordered, p)
+	}
 
 	return c.Paragraphs[len(c.Paragraphs)-1]
 }
