@@ -53,7 +53,7 @@ And you will see two files generated under `pwd` with the same contents as below
 
 ## Use Package in your Project
 ```bash
-go get -d github.com/fumiama/go-docx@latest
+go get -d github.com/zgs225/go-docx@latest
 ```
 ### Generate Document
 ```go
@@ -63,7 +63,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/fumiama/go-docx"
+	"github.com/zgs225/go-docx"
 )
 
 func main() {
@@ -97,7 +97,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/fumiama/go-docx"
+	"github.com/zgs225/go-docx"
 )
 
 func main() {
