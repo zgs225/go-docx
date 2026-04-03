@@ -1,4 +1,4 @@
-module github.com/fumiama/go-docx
+module github.com/zgs225/go-docx
 
 go 1.20
 
