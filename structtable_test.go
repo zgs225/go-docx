@@ -54,6 +54,7 @@ func TestTableStructure(t *testing.T) {
 	tab1.TableRows[0].TableCells[0].TableCellProperties.VMerge = &WvMerge{Val: "restart"}
 	tab1.TableRows[1].TableCells[0].TableCellProperties.VMerge = &WvMerge{}
 	tab1.TableRows[2].TableCells[0].TableCellProperties.VMerge = &WvMerge{}
+	tab1.TableRows[0].TableCells[1].Padding(120, 180, 240, 300)
 	r.Children[0].(*Drawing).Anchor.Graphic.GraphicData.Pic.BlipFill.Blip.AlphaModFix = &AAlphaModFix{Amount: 50000}
 	r.Children[0].(*Drawing).Anchor.Graphic.GraphicData.Pic.NonVisualPicProperties.CNvPicPr.Locks = &APicLocks{NoChangeAspect: 1}
 	r.Children[0].(*Drawing).Anchor.Graphic.GraphicData.Pic.SpPr.Xfrm.Rot = 50000
@@ -77,6 +78,22 @@ func TestTableStructure(t *testing.T) {
 	err = xml.NewDecoder(f).Decode(&w.Document)
 	if err != nil {
 		t.Fatal(err)
+	}
+	paddingCell := w.Document.Body.Items[1].(*Table).TableRows[0].TableCells[1]
+	if paddingCell.TableCellProperties == nil || paddingCell.TableCellProperties.Margins == nil {
+		t.Fatal("cell padding should be unmarshaled into tcMar")
+	}
+	if paddingCell.TableCellProperties.Margins.Top == nil || paddingCell.TableCellProperties.Margins.Top.W != 120 {
+		t.Fatal("top padding mismatch")
+	}
+	if paddingCell.TableCellProperties.Margins.Right == nil || paddingCell.TableCellProperties.Margins.Right.W != 180 {
+		t.Fatal("right padding mismatch")
+	}
+	if paddingCell.TableCellProperties.Margins.Bottom == nil || paddingCell.TableCellProperties.Margins.Bottom.W != 240 {
+		t.Fatal("bottom padding mismatch")
+	}
+	if paddingCell.TableCellProperties.Margins.Left == nil || paddingCell.TableCellProperties.Margins.Left.W != 300 {
+		t.Fatal("left padding mismatch")
 	}
 	f1, err := os.Create("TestUnmarshalTableStructure.xml")
 	if err != nil {

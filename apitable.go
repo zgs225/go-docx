@@ -201,6 +201,21 @@ func (c *WTableCell) Shade(val, color, fill string) *WTableCell {
 	return c
 }
 
+// Padding allows to set cell's inner spacing (CSS-like top/right/bottom/left), unit: twips.
+func (c *WTableCell) Padding(top, right, bottom, left int64) *WTableCell {
+	if c.TableCellProperties == nil {
+		c.TableCellProperties = &WTableCellProperties{}
+	}
+	if c.TableCellProperties.Margins == nil {
+		c.TableCellProperties.Margins = &WTableCellMargins{}
+	}
+	c.TableCellProperties.Margins.Top = &WTableCellMargin{W: top, Type: "dxa"}
+	c.TableCellProperties.Margins.Right = &WTableCellMargin{W: right, Type: "dxa"}
+	c.TableCellProperties.Margins.Bottom = &WTableCellMargin{W: bottom, Type: "dxa"}
+	c.TableCellProperties.Margins.Left = &WTableCellMargin{W: left, Type: "dxa"}
+	return c
+}
+
 // APITableBorderColors customizable param
 type APITableBorderColors struct {
 	Top     string

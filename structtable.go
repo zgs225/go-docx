@@ -594,7 +594,8 @@ type WTableCellProperties struct {
 	TableCellWidth *WTableCellWidth
 	VMerge         *WvMerge
 	GridSpan       *WGridSpan
-	TableBorders   *WTableBorders `xml:"w:tcBorders"`
+	Margins        *WTableCellMargins `xml:"w:tcMar"`
+	TableBorders   *WTableBorders     `xml:"w:tcBorders"`
 	Shade          *Shade
 	VAlign         *WVerticalAlignment
 }
@@ -633,6 +634,12 @@ func (r *WTableCellProperties) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) 
 				}
 				r.GridSpan.Val, err = GetInt(v)
 				if err != nil {
+					return err
+				}
+			case "tcMar":
+				r.Margins = new(WTableCellMargins)
+				err = d.DecodeElement(r.Margins, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
 					return err
 				}
 			case "vAlign":
@@ -675,6 +682,105 @@ type WTableCellWidth struct {
 	XMLName xml.Name `xml:"w:tcW,omitempty"`
 	W       int64    `xml:"w:w,attr"`
 	Type    string   `xml:"w:type,attr"`
+}
+
+// WTableCellMargins represents a cell's internal margins (padding).
+type WTableCellMargins struct {
+	XMLName xml.Name          `xml:"w:tcMar,omitempty"`
+	Top     *WTableCellMargin `xml:"w:top,omitempty"`
+	Left    *WTableCellMargin `xml:"w:left,omitempty"`
+	Bottom  *WTableCellMargin `xml:"w:bottom,omitempty"`
+	Right   *WTableCellMargin `xml:"w:right,omitempty"`
+	Start   *WTableCellMargin `xml:"w:start,omitempty"`
+	End     *WTableCellMargin `xml:"w:end,omitempty"`
+}
+
+// WTableCellMargin represents one side of a table cell margin.
+type WTableCellMargin struct {
+	XMLName xml.Name `xml:",omitempty"`
+	W       int64    `xml:"w:w,attr"`
+	Type    string   `xml:"w:type,attr,omitempty"`
+}
+
+// UnmarshalXML ...
+func (m *WTableCellMargins) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
+	for {
+		t, err := d.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		if tt, ok := t.(xml.StartElement); ok {
+			switch tt.Name.Local {
+			case "top":
+				m.Top = new(WTableCellMargin)
+				err = d.DecodeElement(m.Top, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "left":
+				m.Left = new(WTableCellMargin)
+				err = d.DecodeElement(m.Left, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "bottom":
+				m.Bottom = new(WTableCellMargin)
+				err = d.DecodeElement(m.Bottom, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "right":
+				m.Right = new(WTableCellMargin)
+				err = d.DecodeElement(m.Right, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "start":
+				m.Start = new(WTableCellMargin)
+				err = d.DecodeElement(m.Start, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "end":
+				m.End = new(WTableCellMargin)
+				err = d.DecodeElement(m.End, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			default:
+				err = d.Skip() // skip unsupported tags
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// UnmarshalXML ...
+func (m *WTableCellMargin) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		case "w":
+			if attr.Value == "" {
+				continue
+			}
+			w, err := GetInt64(attr.Value)
+			if err != nil {
+				return err
+			}
+			m.W = w
+		case "type":
+			m.Type = attr.Value
+		}
+	}
+	_, err := d.Token() // consume end element
+	return err
 }
 
 // WvMerge element is used to specify whether a table cell
