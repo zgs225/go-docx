@@ -124,6 +124,23 @@ func main() {
 }
 ```
 
+### Replace Text / Placeholder
+```go
+package main
+
+import "github.com/zgs225/go-docx"
+
+func main() {
+	doc := docx.New().WithDefaultTheme()
+	p := doc.AddParagraph()
+	p.AddText("Hello {{name}}")
+
+	_ = doc.ReplaceText("Hello", "Hi")
+	_ = doc.ReplacePlaceholder(map[string]string{"name": "Codex"})
+	// paragraph text => "Hi Codex"
+}
+```
+
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE)
