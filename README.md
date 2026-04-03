@@ -141,6 +141,23 @@ func main() {
 }
 ```
 
+> Note: current replacement APIs operate on visible text nodes (`w:t`) only.
+> They do not rewrite field code text (`w:instrText`) unless explicitly enabled.
+
+```go
+// Enable field-code replacement for whitelist field types only (default: FORMTEXT, MERGEFIELD)
+_ = doc.ReplaceText("hello", "X",
+	docx.WithFieldCodeReplacement(true),
+)
+// Optional: customize whitelist
+_ = doc.ReplaceText("name", "Alice",
+	docx.WithFieldCodeReplacement(true),
+	docx.WithFieldCodeWhitelist("MERGEFIELD"),
+)
+```
+
+> Safety note: `TOC` / `PAGEREF` are not in default whitelist.
+
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE)
