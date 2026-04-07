@@ -1,74 +1,56 @@
-linters-settings:
-  errcheck:
-    ignore: fmt:.*
-    ignoretests: true
-
-  goimports:
-    local-prefixes: github.com/fumiama/go-docx
-
-  forbidigo:
-    # Forbid the following identifiers
-    forbid:
-      - ^fmt\.Errorf$ # consider errors.Errorf in github.com/pkg/errors
-
+version: "2"
+run:
+  issues-exit-code: 1
+  tests: false
 linters:
-  # please, do not use `enable-all`: it's deprecated and will be removed soon.
-  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
-  disable-all: true
-  fast: false
+  default: none
   enable:
+    - asciicheck
     - bodyclose
-    #- depguard
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
-    - copyloopvar
     - exhaustive
-    #- funlen
-    #- goconst
     - gocritic
-    #- gocyclo
-    #- gofumpt
-    #- goimports
     - goprintffuncname
-    #- gosec
-    - gosimple
     - govet
     - ineffassign
+    - makezero
     - misspell
     - nolintlint
+    - prealloc
+    - predeclared
+    - revive
     - rowserrcheck
     - staticcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
     - unused
     - whitespace
-    - prealloc
-    - predeclared
-    - asciicheck
-    - revive
-    - makezero
-
-run:
-  # default concurrency is a available CPU number.
-  # concurrency: 4 # explicitly omit this value to fully utilize available resources.
-  deadline: 5m
-  issues-exit-code: 1
-  tests: false
-
-# output configuration options
-output:
-  formats:
-    - format: "colored-line-number"
-  print-issued-lines: true
-  print-linter-name: true
-  uniq-by-line: true
-
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Errorf$
+  exclusions:
+    generated: lax
+    rules:
+      - path: (.+)\.go$
+        text: Error return value of .((os.)?std(out|err)..*|.*Close|.*Seek|.*Flush|os.Remove(All)?|.*print(f|ln)?|os.(Un)?Setenv). is not check
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  # Fix found issues (if it's supported by the linter)
   fix: false
-  exclude-use-default: false
-  exclude:
-    - "Error return value of .((os.)?std(out|err)..*|.*Close|.*Seek|.*Flush|os.Remove(All)?|.*print(f|ln)?|os.(Un)?Setenv). is not check"
+formatters:
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/fumiama/go-docx
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

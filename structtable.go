@@ -508,6 +508,7 @@ func (w *WTableRow) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 }
 
 // MarshalXML keeps table row child order stable for round-trip writeback.
+//nolint:dupl
 func (w *WTableRow) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	start.Name = xml.Name{Local: "w:tr"}
 	if err := e.EncodeToken(start); err != nil {

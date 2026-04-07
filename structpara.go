@@ -328,6 +328,7 @@ func (p *Paragraph) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 }
 
 // MarshalXML keeps paragraph child order stable for round-trip writeback.
+//nolint:dupl
 func (p *Paragraph) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	start.Name = xml.Name{Local: "w:p"}
 	if err := e.EncodeToken(start); err != nil {

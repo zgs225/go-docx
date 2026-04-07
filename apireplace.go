@@ -385,10 +385,7 @@ func findMatches(source, find string, caseSensitive bool, remaining int) []textM
 
 	matches := make([]textMatch, 0, 8)
 	start := 0
-	for {
-		if remaining == 0 {
-			break
-		}
+	for remaining != 0 {
 		idx := strings.Index(src[start:], target)
 		if idx < 0 {
 			break
