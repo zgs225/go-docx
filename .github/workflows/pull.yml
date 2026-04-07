@@ -17,7 +17,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          version: v1.60.1
+          version: v2.11.4
 
           verify: false # https://github.com/golangci/golangci-lint-action/issues/1163
 
