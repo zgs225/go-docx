@@ -26,11 +26,26 @@ import (
 
 // SectPr show the properties of the document, like paper size
 type SectPr struct {
-	XMLName xml.Name `xml:"w:sectPr,omitempty"` // properties of the document, including paper size
-	PgSz    *PgSz    `xml:"w:pgSz,omitempty"`
-	PgMar   *PgMar   `xml:"w:pgMar,omitempty"`
-	Cols    *Cols    `xml:"w:cols,omitempty"`
-	DocGrid *DocGrid `xml:"w:docGrid,omitempty"`
+	XMLName    xml.Name           `xml:"w:sectPr,omitempty"` // properties of the document, including paper size
+	HeaderRefs []*HeaderReference `xml:"w:headerReference,omitempty"`
+	FooterRefs []*FooterReference `xml:"w:footerReference,omitempty"`
+	PgSz       *PgSz              `xml:"w:pgSz,omitempty"`
+	PgMar      *PgMar             `xml:"w:pgMar,omitempty"`
+	Cols       *Cols              `xml:"w:cols,omitempty"`
+	DocGrid    *DocGrid           `xml:"w:docGrid,omitempty"`
+	ordered    []interface{}      // keeps known/unknown order for round-trip
+}
+
+type HeaderReference struct {
+	XMLName xml.Name `xml:"w:headerReference,omitempty"`
+	Type    string   `xml:"w:type,attr,omitempty"`
+	RID     string   `xml:"r:id,attr,omitempty"`
+}
+
+type FooterReference struct {
+	XMLName xml.Name `xml:"w:footerReference,omitempty"`
+	Type    string   `xml:"w:type,attr,omitempty"`
+	RID     string   `xml:"r:id,attr,omitempty"`
 }
 
 // PgSz show the paper size
@@ -73,6 +88,28 @@ func (sect *SectPr) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 		}
 		if tt, ok := t.(xml.StartElement); ok {
 			switch tt.Name.Local {
+			case "headerReference":
+				ref := &HeaderReference{
+					Type: getAtt(tt.Attr, "type"),
+					RID:  getAtt(tt.Attr, "id"),
+				}
+				sect.HeaderRefs = append(sect.HeaderRefs, ref)
+				sect.ordered = append(sect.ordered, ref)
+				err = d.Skip()
+				if err != nil {
+					return err
+				}
+			case "footerReference":
+				ref := &FooterReference{
+					Type: getAtt(tt.Attr, "type"),
+					RID:  getAtt(tt.Attr, "id"),
+				}
+				sect.FooterRefs = append(sect.FooterRefs, ref)
+				sect.ordered = append(sect.ordered, ref)
+				err = d.Skip()
+				if err != nil {
+					return err
+				}
 			case "pgSz":
 				var value PgSz
 				err = d.DecodeElement(&value, &tt)
@@ -80,6 +117,7 @@ func (sect *SectPr) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				sect.PgSz = &value
+				sect.ordered = append(sect.ordered, sect.PgSz)
 			case "pgMar":
 				var value PgMar
 				err = d.DecodeElement(&value, &tt)
@@ -87,6 +125,7 @@ func (sect *SectPr) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				sect.PgMar = &value
+				sect.ordered = append(sect.ordered, sect.PgMar)
 			case "cols":
 				var value Cols
 				err = d.DecodeElement(&value, &tt)
@@ -94,6 +133,7 @@ func (sect *SectPr) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				sect.Cols = &value
+				sect.ordered = append(sect.ordered, sect.Cols)
 			case "docGrid":
 				var value DocGrid
 				err = d.DecodeElement(&value, &tt)
@@ -101,15 +141,92 @@ func (sect *SectPr) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 					return err
 				}
 				sect.DocGrid = &value
+				sect.ordered = append(sect.ordered, sect.DocGrid)
 			default:
-				err = d.Skip() // skip unsupported tags
+				raw, err := decodeRawXMLNode(d, tt)
 				if err != nil {
 					return err
 				}
+				sect.ordered = append(sect.ordered, raw)
 			}
 		}
 	}
 	return nil
+}
+
+// MarshalXML keeps section children write order stable for round-trip.
+func (sect *SectPr) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name = xml.Name{Local: "w:sectPr"}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if len(sect.ordered) > 0 {
+		for _, item := range sect.ordered {
+			if item == nil {
+				continue
+			}
+			switch v := item.(type) {
+			case *PgSz:
+				if err := e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "w:pgSz"}}); err != nil {
+					return err
+				}
+			case *PgMar:
+				if err := e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "w:pgMar"}}); err != nil {
+					return err
+				}
+			case *Cols:
+				if err := e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "w:cols"}}); err != nil {
+					return err
+				}
+			case *DocGrid:
+				if err := e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "w:docGrid"}}); err != nil {
+					return err
+				}
+			default:
+				if err := e.Encode(item); err != nil {
+					return err
+				}
+			}
+		}
+		return e.EncodeToken(start.End())
+	}
+	for _, ref := range sect.HeaderRefs {
+		if ref == nil {
+			continue
+		}
+		if err := e.EncodeElement(ref, xml.StartElement{Name: xml.Name{Local: "w:headerReference"}}); err != nil {
+			return err
+		}
+	}
+	for _, ref := range sect.FooterRefs {
+		if ref == nil {
+			continue
+		}
+		if err := e.EncodeElement(ref, xml.StartElement{Name: xml.Name{Local: "w:footerReference"}}); err != nil {
+			return err
+		}
+	}
+	if sect.PgSz != nil {
+		if err := e.EncodeElement(sect.PgSz, xml.StartElement{Name: xml.Name{Local: "w:pgSz"}}); err != nil {
+			return err
+		}
+	}
+	if sect.PgMar != nil {
+		if err := e.EncodeElement(sect.PgMar, xml.StartElement{Name: xml.Name{Local: "w:pgMar"}}); err != nil {
+			return err
+		}
+	}
+	if sect.Cols != nil {
+		if err := e.EncodeElement(sect.Cols, xml.StartElement{Name: xml.Name{Local: "w:cols"}}); err != nil {
+			return err
+		}
+	}
+	if sect.DocGrid != nil {
+		if err := e.EncodeElement(sect.DocGrid, xml.StartElement{Name: xml.Name{Local: "w:docGrid"}}); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 // UnmarshalXML ...

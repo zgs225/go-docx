@@ -154,6 +154,20 @@ func main() {
 			panic(err)
 		}
 
+		// Demo: header/footer/page number APIs
+		err = w.SetHeaderText(docx.HeaderDefault, "Demo Header")
+		if err != nil {
+			panic(err)
+		}
+		err = w.SetFooterText(docx.FooterDefault, "Page: ")
+		if err != nil {
+			panic(err)
+		}
+		err = w.AddPageNumber(docx.PageNumberArabic)
+		if err != nil {
+			panic(err)
+		}
+
 		p := w.AddParagraph().Justification("center")
 		p.AddText("测试 AutoShape w:ln").Size("44")
 		_ = p.AddAnchorShape(808355, 238760, "AutoShape", "auto", "straightConnector1",

@@ -50,6 +50,24 @@ type runInstrText struct {
 	Text    string   `xml:",chardata"`
 }
 
+type runFldChar struct {
+	Type string
+}
+
+func (r *runFldChar) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name = xml.Name{Local: "w:fldChar"}
+	if r != nil && r.Type != "" {
+		start.Attr = append(start.Attr, xml.Attr{
+			Name:  xml.Name{Local: "w:fldCharType"},
+			Value: r.Type,
+		})
+	}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	return e.EncodeToken(start.End())
+}
+
 // UnmarshalXML ...
 func (r *Run) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	for _, attr := range start.Attr {

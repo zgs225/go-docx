@@ -24,8 +24,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 // pack receives a zip file writer (word documents are a zip with multiple xml inside)
@@ -50,6 +52,16 @@ func (f *Docx) pack(zipWriter *zip.Writer) (err error) {
 		}
 	}
 
+	headerPaths, footerPaths, err := f.syncHeaderFooterForPack(files)
+	if err != nil {
+		return err
+	}
+	if len(headerPaths) > 0 || len(footerPaths) > 0 {
+		if err := ensureContentTypesHeaderFooterOverrides(files, headerPaths, footerPaths); err != nil {
+			return err
+		}
+	}
+
 	files["word/_rels/document.xml.rels"] = marshaller{data: &f.docRelation}
 	files["word/document.xml"] = marshaller{data: &f.Document}
 
@@ -70,6 +82,117 @@ func (f *Docx) pack(zipWriter *zip.Writer) (err error) {
 	}
 
 	return
+}
+
+func (f *Docx) syncHeaderFooterForPack(files map[string]io.Reader) ([]string, []string, error) {
+	if len(f.headers) == 0 && len(f.footers) == 0 {
+		return nil, nil, nil
+	}
+	mainSect := f.ensureMainSectPr(true)
+	existingHeaderRID := make(map[HeaderKind]string, len(mainSect.HeaderRefs))
+	for _, ref := range mainSect.HeaderRefs {
+		if ref == nil {
+			continue
+		}
+		existingHeaderRID[normalizeHeaderKind(HeaderKind(ref.Type))] = ref.RID
+	}
+	existingFooterRID := make(map[FooterKind]string, len(mainSect.FooterRefs))
+	for _, ref := range mainSect.FooterRefs {
+		if ref == nil {
+			continue
+		}
+		existingFooterRID[normalizeFooterKind(FooterKind(ref.Type))] = ref.RID
+	}
+
+	headerPaths := make([]string, 0, len(f.headers))
+	footerPaths := make([]string, 0, len(f.footers))
+	hrefs := make([]*HeaderReference, 0, len(f.headers))
+	frefs := make([]*FooterReference, 0, len(f.footers))
+
+	for _, kind := range headerKindsInOrder() {
+		h := f.headers[kind]
+		if h == nil {
+			continue
+		}
+		h.file = f
+		path := fmt.Sprintf("word/header_%s.xml", kind)
+		if rid := existingHeaderRID[kind]; rid != "" {
+			if rel := f.findRelationshipByID(rid); rel != nil {
+				path = "word/" + normalizeRelTarget(rel.Target)
+			}
+		}
+		files[path] = marshaller{data: h}
+		target := strings.TrimPrefix(path, "word/")
+		rid := f.ensureInternalPartRelation(REL_HEADER, target, existingHeaderRID[kind])
+		hrefs = append(hrefs, &HeaderReference{Type: string(kind), RID: rid})
+		headerPaths = append(headerPaths, path)
+	}
+	for _, kind := range footerKindsInOrder() {
+		ft := f.footers[kind]
+		if ft == nil {
+			continue
+		}
+		ft.file = f
+		path := fmt.Sprintf("word/footer_%s.xml", kind)
+		if rid := existingFooterRID[kind]; rid != "" {
+			if rel := f.findRelationshipByID(rid); rel != nil {
+				path = "word/" + normalizeRelTarget(rel.Target)
+			}
+		}
+		files[path] = marshaller{data: ft}
+		target := strings.TrimPrefix(path, "word/")
+		rid := f.ensureInternalPartRelation(REL_FOOTER, target, existingFooterRID[kind])
+		frefs = append(frefs, &FooterReference{Type: string(kind), RID: rid})
+		footerPaths = append(footerPaths, path)
+	}
+
+	mainSect.setHeaderFooterRefs(hrefs, frefs)
+	return headerPaths, footerPaths, nil
+}
+
+func ensureContentTypesHeaderFooterOverrides(files map[string]io.Reader, headerPaths, footerPaths []string) error {
+	const contentTypesPath = "[Content_Types].xml"
+	r, ok := files[contentTypesPath]
+	if !ok {
+		return nil
+	}
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	updated := string(data)
+	insert := make([]string, 0, len(headerPaths)+len(footerPaths))
+	for _, p := range headerPaths {
+		part := "/" + strings.TrimPrefix(p, "/")
+		if !strings.Contains(updated, `PartName="`+part+`"`) {
+			insert = append(insert, `<Override PartName="`+part+`" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>`)
+		}
+	}
+	for _, p := range footerPaths {
+		part := "/" + strings.TrimPrefix(p, "/")
+		if !strings.Contains(updated, `PartName="`+part+`"`) {
+			insert = append(insert, `<Override PartName="`+part+`" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>`)
+		}
+	}
+	if len(insert) == 0 {
+		files[contentTypesPath] = bytes.NewReader(data)
+		return nil
+	}
+	anchor := "</Types>"
+	idx := strings.LastIndex(updated, anchor)
+	if idx < 0 {
+		files[contentTypesPath] = bytes.NewReader(data)
+		return nil
+	}
+	var b strings.Builder
+	b.Grow(len(updated) + len(strings.Join(insert, "")) + 16)
+	b.WriteString(updated[:idx])
+	for _, item := range insert {
+		b.WriteString(item)
+	}
+	b.WriteString(updated[idx:])
+	files[contentTypesPath] = bytes.NewReader(StringToBytes(b.String()))
+	return nil
 }
 
 type marshaller struct {

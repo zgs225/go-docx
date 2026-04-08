@@ -343,6 +343,82 @@ func TestTableDefaultPaddingAndLayoutThenRoundTripCheck(t *testing.T) {
 	}
 }
 
+func TestHeaderFooterPageNumberThenRoundTripCheck(t *testing.T) {
+	tmp := t.TempDir()
+	inPath := filepath.Join(tmp, "hf-input.docx")
+	replacedPath := filepath.Join(tmp, "hf-updated.docx")
+	outPath := filepath.Join(tmp, "hf-roundtrip.docx")
+
+	if err := createSampleDocxWithHeaderFooter(inPath); err != nil {
+		t.Fatal(err)
+	}
+
+	inFile, err := os.Open(inPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inFile.Close()
+
+	st, err := inFile.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := docx.Parse(inFile, st.Size())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := doc.SetHeaderText(docx.HeaderDefault, "Updated Header"); err != nil {
+		t.Fatal(err)
+	}
+	if err := doc.SetFooterText(docx.FooterDefault, "Page: "); err != nil {
+		t.Fatal(err)
+	}
+	if err := doc.AddPageNumber(docx.PageNumberArabic); err != nil {
+		t.Fatal(err)
+	}
+
+	outFile, err := os.Create(replacedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := doc.WriteTo(outFile); err != nil {
+		_ = outFile.Close()
+		t.Fatal(err)
+	}
+	_ = outFile.Close()
+
+	entries, err := readZipEntries(replacedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headerXML := string(entries["word/header_default.xml"])
+	footerXML := string(entries["word/footer_default.xml"])
+	docXML := string(entries["word/document.xml"])
+	if !strings.Contains(headerXML, "Updated Header") {
+		t.Fatalf("updated header text missing: %s", headerXML)
+	}
+	for _, needle := range []string{`fldCharType="begin"`, `fldCharType="separate"`, `fldCharType="end"`, "PAGE"} {
+		if !strings.Contains(footerXML, needle) {
+			t.Fatalf("footer page number field missing %q: %s", needle, footerXML)
+		}
+	}
+	if !strings.Contains(docXML, "headerReference") || !strings.Contains(docXML, "footerReference") {
+		t.Fatalf("document sectPr refs missing: %s", docXML)
+	}
+
+	if err := roundTripOne(replacedPath, outPath); err != nil {
+		t.Fatal(err)
+	}
+	issues, err := compareDocxStructure(replacedPath, outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(issues) != 0 {
+		t.Fatalf("unexpected structural issues after header/footer/page number update and round-trip: %v", issues)
+	}
+}
+
 func createSampleDocxWithUnknownNodes(path string) error {
 	base := docx.New().WithDefaultTheme().WithA4Page()
 	base.AddParagraph().AddText("roundtrip")
@@ -470,4 +546,23 @@ func createSampleDocxWithFieldCodes(path string) error {
 		}
 	}
 	return zw.Close()
+}
+
+func createSampleDocxWithHeaderFooter(path string) error {
+	base := docx.New().WithDefaultTheme().WithA4Page()
+	base.AddParagraph().AddText("header footer baseline")
+	if err := base.SetHeaderText(docx.HeaderDefault, "Initial Header"); err != nil {
+		return err
+	}
+	if err := base.SetFooterText(docx.FooterDefault, "Initial Footer"); err != nil {
+		return err
+	}
+
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = base.WriteTo(out)
+	return err
 }

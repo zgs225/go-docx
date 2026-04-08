@@ -25,6 +25,8 @@ const (
 	XMLNS_REL     = `http://schemas.openxmlformats.org/package/2006/relationships`
 	REL_HYPERLINK = `http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink`
 	REL_IMAGE     = `http://schemas.openxmlformats.org/officeDocument/2006/relationships/image`
+	REL_HEADER    = `http://schemas.openxmlformats.org/officeDocument/2006/relationships/header`
+	REL_FOOTER    = `http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer`
 
 	REL_TARGETMODE = "External"
 )

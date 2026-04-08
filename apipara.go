@@ -26,7 +26,7 @@ func (f *Docx) AddParagraph() *Paragraph {
 		Children: make([]interface{}, 0, 64),
 		file:     f,
 	}
-	f.Document.Body.Items = append(f.Document.Body.Items, p)
+	f.appendBodyItemBeforeTrailingSectPr(p)
 	return p
 }
 

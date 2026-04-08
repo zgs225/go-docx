@@ -39,24 +39,20 @@ func (f *Docx) WithDefaultTheme() *Docx {
 
 // WithA3Page use A3 PageSize
 func (f *Docx) WithA3Page() *Docx {
-	sectpr := &SectPr{
-		PgSz: &PgSz{
-			W: 16838,
-			H: 23811,
-		},
+	sectpr := f.ensureMainSectPr(true)
+	sectpr.PgSz = &PgSz{
+		W: 16838,
+		H: 23811,
 	}
-	f.Document.Body.Items = append(f.Document.Body.Items, sectpr)
 	return f
 }
 
 // WithA4Page use A4 PageSize
 func (f *Docx) WithA4Page() *Docx {
-	sectpr := &SectPr{
-		PgSz: &PgSz{
-			W: 11906,
-			H: 16838,
-		},
+	sectpr := f.ensureMainSectPr(true)
+	sectpr.PgSz = &PgSz{
+		W: 11906,
+		H: 16838,
 	}
-	f.Document.Body.Items = append(f.Document.Body.Items, sectpr)
 	return f
 }

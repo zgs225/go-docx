@@ -511,6 +511,12 @@ func runHasFldCharType(r *Run, want string) bool {
 		items = r.ordered
 	}
 	for _, item := range items {
+		if fld, ok := item.(*runFldChar); ok {
+			if strings.EqualFold(fld.Type, want) {
+				return true
+			}
+			continue
+		}
 		raw, ok := item.(*RawXMLNode)
 		if !ok {
 			continue

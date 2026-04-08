@@ -37,6 +37,8 @@ type Docx struct {
 	Document Document // Document is word/document.xml
 
 	docRelation Relationships // docRelation is word/_rels/document.xml.rels
+	headers     map[HeaderKind]*Header
+	footers     map[FooterKind]*Footer
 
 	media        []Media
 	mediaNameIdx map[string]int

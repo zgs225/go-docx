@@ -79,7 +79,7 @@ func (f *Docx) AddTable(
 		TableGrid: &WTableGrid{},
 		TableRows: trs,
 	}
-	f.Document.Body.Items = append(f.Document.Body.Items, tbl)
+	f.appendBodyItemBeforeTrailingSectPr(tbl)
 	return tbl
 }
 
@@ -153,7 +153,7 @@ func (f *Docx) AddTableTwips(
 		},
 		TableRows: trs,
 	}
-	f.Document.Body.Items = append(f.Document.Body.Items, tbl)
+	f.appendBodyItemBeforeTrailingSectPr(tbl)
 	return tbl
 }
 

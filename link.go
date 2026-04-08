@@ -23,6 +23,7 @@ package docx
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"sync/atomic"
 )
 
@@ -82,4 +83,53 @@ func (f *Docx) ReferID(target string) (string, error) {
 		}
 	}
 	return "", ErrRefIDNotFound
+}
+
+func (f *Docx) findRelationshipByID(id string) *Relationship {
+	for i := range f.docRelation.Relationship {
+		if f.docRelation.Relationship[i].ID == id {
+			return &f.docRelation.Relationship[i]
+		}
+	}
+	return nil
+}
+
+func (f *Docx) findRelationshipByTypeTarget(typ, target string) *Relationship {
+	norm := normalizeRelTarget(target)
+	for i := range f.docRelation.Relationship {
+		r := &f.docRelation.Relationship[i]
+		if r.Type == typ && normalizeRelTarget(r.Target) == norm {
+			return r
+		}
+	}
+	return nil
+}
+
+func normalizeRelTarget(target string) string {
+	target = strings.TrimSpace(strings.TrimPrefix(target, "./"))
+	target = strings.TrimPrefix(target, "/")
+	target = strings.TrimPrefix(target, "word/")
+	return target
+}
+
+func (f *Docx) ensureInternalPartRelation(relType, target, currentRID string) string {
+	target = normalizeRelTarget(target)
+	if currentRID != "" {
+		if rel := f.findRelationshipByID(currentRID); rel != nil {
+			rel.Type = relType
+			rel.Target = target
+			rel.TargetMode = ""
+			return rel.ID
+		}
+	}
+	if rel := f.findRelationshipByTypeTarget(relType, target); rel != nil {
+		return rel.ID
+	}
+	rel := Relationship{
+		ID:     "rId" + strconv.Itoa(int(atomic.AddUintptr(&f.rID, 1))),
+		Type:   relType,
+		Target: target,
+	}
+	f.docRelation.Relationship = append(f.docRelation.Relationship, rel)
+	return rel.ID
 }

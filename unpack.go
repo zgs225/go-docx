@@ -41,8 +41,12 @@ func unpack(zipReader *zip.Reader) (docx *Docx, err error) {
 	docx = new(Docx)
 	docx.mediaNameIdx = make(map[string]int, 64)
 	docx.slowIDs = make(map[string]uintptr, 64)
+	docx.headers = make(map[HeaderKind]*Header, 3)
+	docx.footers = make(map[FooterKind]*Footer, 3)
 	docx.tmplfs = zipReader
 	docx.tmpfslst = make([]string, 0, 64)
+	headerFiles := make([]*zip.File, 0, 4)
+	footerFiles := make([]*zip.File, 0, 4)
 	for _, f := range zipReader.File {
 		if f.Name == "word/_rels/document.xml.rels" {
 			err = docx.parseDocRelation(f)
@@ -65,8 +69,21 @@ func unpack(zipReader *zip.Reader) (docx *Docx, err error) {
 			}
 			continue
 		}
+		if strings.HasPrefix(f.Name, "word/header") && strings.HasSuffix(strings.ToLower(f.Name), ".xml") {
+			headerFiles = append(headerFiles, f)
+			docx.tmpfslst = append(docx.tmpfslst, f.Name)
+			continue
+		}
+		if strings.HasPrefix(f.Name, "word/footer") && strings.HasSuffix(strings.ToLower(f.Name), ".xml") {
+			footerFiles = append(footerFiles, f)
+			docx.tmpfslst = append(docx.tmpfslst, f.Name)
+			continue
+		}
 		// fill remaining files into tmpfslst
 		docx.tmpfslst = append(docx.tmpfslst, f.Name)
+	}
+	if err = docx.parseHeaderFooterParts(headerFiles, footerFiles); err != nil {
+		return nil, err
 	}
 	//TODO: find last imageID
 	docx.imageID = 100000
@@ -143,4 +160,85 @@ func (f *Docx) parseMedia(file *zip.File) error {
 	f.mediaNameIdx[name] = len(f.media)
 	f.media = append(f.media, Media{Name: name, Data: data})
 	return zf.Close()
+}
+
+func (f *Docx) parseHeaderFooterParts(headerFiles, footerFiles []*zip.File) error {
+	parsedHeaders := make(map[string]*Header, len(headerFiles))
+	for _, zf := range headerFiles {
+		h, err := f.parseHeaderFile(zf)
+		if err != nil {
+			return err
+		}
+		parsedHeaders[strings.TrimPrefix(zf.Name, "word/")] = h
+	}
+	parsedFooters := make(map[string]*Footer, len(footerFiles))
+	for _, zf := range footerFiles {
+		ft, err := f.parseFooterFile(zf)
+		if err != nil {
+			return err
+		}
+		parsedFooters[strings.TrimPrefix(zf.Name, "word/")] = ft
+	}
+
+	mainSect := f.ensureMainSectPr(false)
+	if mainSect == nil {
+		return nil
+	}
+	for _, ref := range mainSect.HeaderRefs {
+		if ref == nil || ref.RID == "" {
+			continue
+		}
+		rel := f.findRelationshipByID(ref.RID)
+		if rel == nil {
+			continue
+		}
+		h := parsedHeaders[normalizeRelTarget(rel.Target)]
+		if h == nil {
+			continue
+		}
+		f.headers[normalizeHeaderKind(HeaderKind(ref.Type))] = h
+	}
+	for _, ref := range mainSect.FooterRefs {
+		if ref == nil || ref.RID == "" {
+			continue
+		}
+		rel := f.findRelationshipByID(ref.RID)
+		if rel == nil {
+			continue
+		}
+		ft := parsedFooters[normalizeRelTarget(rel.Target)]
+		if ft == nil {
+			continue
+		}
+		f.footers[normalizeFooterKind(FooterKind(ref.Type))] = ft
+	}
+	return nil
+}
+
+func (f *Docx) parseHeaderFile(file *zip.File) (*Header, error) {
+	rc, err := file.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	var h Header
+	h.file = f
+	if err := xml.NewDecoder(rc).Decode(&h); err != nil {
+		return nil, err
+	}
+	return &h, nil
+}
+
+func (f *Docx) parseFooterFile(file *zip.File) (*Footer, error) {
+	rc, err := file.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	var ft Footer
+	ft.file = f
+	if err := xml.NewDecoder(rc).Decode(&ft); err != nil {
+		return nil, err
+	}
+	return &ft, nil
 }
