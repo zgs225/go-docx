@@ -110,6 +110,7 @@ func main() {
 		w.AddParagraph()
 
 		tbl1 := w.AddTable(9, 9, 0, nil)
+		tbl1.SetLayoutAutofit()
 		for x, r := range tbl1.TableRows {
 			red := (x + 1) * 28
 			for y, c := range r.TableCells {
@@ -123,6 +124,7 @@ func main() {
 		w.AddParagraph()
 
 		tbl2 := w.AddTableTwips([]int64{2333, 2333, 2333}, []int64{2333, 2333}, 0, nil).Justification("center")
+		tbl2.SetDefaultCellPadding(120, 180, 240, 300).SetLayoutFixed().SetWidthTwips(4666)
 		for x, r := range tbl2.TableRows {
 			r.Justification("center")
 			for y, c := range r.TableCells {
@@ -131,6 +133,8 @@ func main() {
 			}
 		}
 		tbl2.TableRows[0].TableCells[0].Shade("clear", "auto", "E7E6E6")
+		// Demo: table-level default padding + cell override
+		tbl2.TableRows[0].TableCells[0].Padding(40, 60, 80, 100)
 		// Demo: table span + border APIs
 		tbl2.TableRows[2].TableCells[0].SetColSpan(2)
 		tbl2.TableRows[0].TableCells[1].SetRowSpanRestart()

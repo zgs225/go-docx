@@ -166,11 +166,48 @@ func (f *Docx) AddTableTwips(
 //		both：两端对齐。
 //		distribute：分散对齐。
 func (t *Table) Justification(val string) *Table {
-	if t.TableProperties.Justification == nil {
-		t.TableProperties.Justification = &Justification{Val: val}
+	tp := t.ensureTableProperties()
+	if tp.Justification == nil {
+		tp.Justification = &Justification{Val: val}
 		return t
 	}
-	t.TableProperties.Justification.Val = val
+	tp.Justification.Val = val
+	return t
+}
+
+// SetDefaultCellPadding sets table-level default cell padding (tblCellMar), unit: twips.
+func (t *Table) SetDefaultCellPadding(top, right, bottom, left int64) *Table {
+	tp := t.ensureTableProperties()
+	if tp.CellMargins == nil {
+		tp.CellMargins = &WTableDefaultCellMargins{}
+	}
+	tp.CellMargins.Top = &WTableCellMargin{W: top, Type: "dxa"}
+	tp.CellMargins.Right = &WTableCellMargin{W: right, Type: "dxa"}
+	tp.CellMargins.Bottom = &WTableCellMargin{W: bottom, Type: "dxa"}
+	tp.CellMargins.Left = &WTableCellMargin{W: left, Type: "dxa"}
+	return t
+}
+
+// SetLayoutFixed sets table layout to fixed.
+func (t *Table) SetLayoutFixed() *Table {
+	t.ensureTableProperties().Layout = &WTableLayout{Type: "fixed"}
+	return t
+}
+
+// SetLayoutAutofit sets table layout to autofit.
+func (t *Table) SetLayoutAutofit() *Table {
+	t.ensureTableProperties().Layout = &WTableLayout{Type: "autofit"}
+	return t
+}
+
+// SetWidthTwips sets table width in twips.
+func (t *Table) SetWidthTwips(width int64) *Table {
+	tp := t.ensureTableProperties()
+	if width <= 0 {
+		tp.Width = &WTableWidth{Type: "auto"}
+		return t
+	}
+	tp.Width = &WTableWidth{W: width, Type: "dxa"}
 	return t
 }
 
@@ -300,6 +337,16 @@ func (c *WTableCell) ensureCellProperties() *WTableCellProperties {
 		}
 	}
 	return c.TableCellProperties
+}
+
+func (t *Table) ensureTableProperties() *WTableProperties {
+	if t.TableProperties == nil {
+		t.TableProperties = &WTableProperties{}
+		if len(t.ordered) > 0 {
+			t.ordered = append([]interface{}{t.TableProperties}, t.ordered...)
+		}
+	}
+	return t.TableProperties
 }
 
 // APITableBorderColors customizable param

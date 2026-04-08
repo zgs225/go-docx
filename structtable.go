@@ -152,8 +152,10 @@ type WTableProperties struct {
 	Position      *WTablePositioningProperties
 	Style         *WTableStyle
 	Width         *WTableWidth
-	Justification *Justification `xml:"w:jc,omitempty"`
-	TableBorders  *WTableBorders `xml:"w:tblBorders"`
+	CellMargins   *WTableDefaultCellMargins `xml:"w:tblCellMar,omitempty"`
+	Layout        *WTableLayout             `xml:"w:tblLayout,omitempty"`
+	Justification *Justification            `xml:"w:jc,omitempty"`
+	TableBorders  *WTableBorders            `xml:"w:tblBorders"`
 	Look          *WTableLook
 }
 
@@ -184,6 +186,18 @@ func (t *WTableProperties) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) erro
 			case "tblW":
 				t.Width = new(WTableWidth)
 				err = d.DecodeElement(t.Width, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "tblCellMar":
+				t.CellMargins = new(WTableDefaultCellMargins)
+				err = d.DecodeElement(t.CellMargins, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "tblLayout":
+				t.Layout = new(WTableLayout)
+				err = d.DecodeElement(t.Layout, &tt)
 				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
 					return err
 				}
@@ -330,6 +344,23 @@ func (t *WTableWidth) UnmarshalXML(d *xml.Decoder, start xml.StartElement) (err 
 	}
 	// Consume the end element
 	_, err = d.Token()
+	return err
+}
+
+// WTableLayout controls table layout behavior (fixed/autofit).
+type WTableLayout struct {
+	XMLName xml.Name `xml:"w:tblLayout,omitempty"`
+	Type    string   `xml:"w:type,attr"`
+}
+
+// UnmarshalXML ...
+func (l *WTableLayout) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		if attr.Name.Local == "type" {
+			l.Type = attr.Value
+		}
+	}
+	_, err := d.Token() // consume end element
 	return err
 }
 
@@ -508,6 +539,7 @@ func (w *WTableRow) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 }
 
 // MarshalXML keeps table row child order stable for round-trip writeback.
+//
 //nolint:dupl
 func (w *WTableRow) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	start.Name = xml.Name{Local: "w:tr"}
@@ -819,6 +851,17 @@ type WTableCellMargins struct {
 	End     *WTableCellMargin `xml:"w:end,omitempty"`
 }
 
+// WTableDefaultCellMargins represents table-level default cell margins (tblCellMar).
+type WTableDefaultCellMargins struct {
+	XMLName xml.Name          `xml:"w:tblCellMar,omitempty"`
+	Top     *WTableCellMargin `xml:"w:top,omitempty"`
+	Left    *WTableCellMargin `xml:"w:left,omitempty"`
+	Bottom  *WTableCellMargin `xml:"w:bottom,omitempty"`
+	Right   *WTableCellMargin `xml:"w:right,omitempty"`
+	Start   *WTableCellMargin `xml:"w:start,omitempty"`
+	End     *WTableCellMargin `xml:"w:end,omitempty"`
+}
+
 // WTableCellMargin represents one side of a table cell margin.
 type WTableCellMargin struct {
 	XMLName xml.Name `xml:",omitempty"`
@@ -877,6 +920,66 @@ func (m *WTableCellMargins) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) err
 				}
 			default:
 				err = d.Skip() // skip unsupported tags
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// UnmarshalXML ...
+func (m *WTableDefaultCellMargins) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
+	for {
+		t, err := d.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		if tt, ok := t.(xml.StartElement); ok {
+			switch tt.Name.Local {
+			case "top":
+				m.Top = new(WTableCellMargin)
+				err = d.DecodeElement(m.Top, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "left":
+				m.Left = new(WTableCellMargin)
+				err = d.DecodeElement(m.Left, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "bottom":
+				m.Bottom = new(WTableCellMargin)
+				err = d.DecodeElement(m.Bottom, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "right":
+				m.Right = new(WTableCellMargin)
+				err = d.DecodeElement(m.Right, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "start":
+				m.Start = new(WTableCellMargin)
+				err = d.DecodeElement(m.Start, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			case "end":
+				m.End = new(WTableCellMargin)
+				err = d.DecodeElement(m.End, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+			default:
+				err = d.Skip()
 				if err != nil {
 					return err
 				}

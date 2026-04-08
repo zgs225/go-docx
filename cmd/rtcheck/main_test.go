@@ -260,6 +260,89 @@ func TestTableSpanBorderClearThenRoundTripCheck(t *testing.T) {
 	}
 }
 
+func TestTableDefaultPaddingAndLayoutThenRoundTripCheck(t *testing.T) {
+	tmp := t.TempDir()
+	inPath := filepath.Join(tmp, "table-input-layout.docx")
+	replacedPath := filepath.Join(tmp, "table-updated-layout.docx")
+	outPath := filepath.Join(tmp, "table-roundtrip-layout.docx")
+
+	if err := createSampleDocxWithUnknownNodes(inPath); err != nil {
+		t.Fatal(err)
+	}
+
+	inFile, err := os.Open(inPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inFile.Close()
+
+	st, err := inFile.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := docx.Parse(inFile, st.Size())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var target *docx.Table
+	for _, item := range doc.Document.Body.Items {
+		tbl, ok := item.(*docx.Table)
+		if !ok {
+			continue
+		}
+		target = tbl
+		break
+	}
+	if target == nil {
+		t.Fatal("expected at least one table in sample")
+	}
+
+	target.SetDefaultCellPadding(120, 180, 240, 300).
+		SetLayoutFixed().
+		SetWidthTwips(7200)
+	target.TableRows[0].TableCells[0].Padding(10, 20, 30, 40)
+
+	outFile, err := os.Create(replacedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := doc.WriteTo(outFile); err != nil {
+		_ = outFile.Close()
+		t.Fatal(err)
+	}
+	_ = outFile.Close()
+
+	replacedEntries, err := readZipEntries(replacedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacedXML := string(replacedEntries["word/document.xml"])
+	if !strings.Contains(replacedXML, `tblCellMar`) {
+		t.Fatalf("expected tblCellMar in document.xml, got: %s", replacedXML)
+	}
+	if !strings.Contains(replacedXML, `tblLayout`) || !strings.Contains(replacedXML, `fixed`) {
+		t.Fatalf("expected fixed tblLayout in document.xml, got: %s", replacedXML)
+	}
+	if !strings.Contains(replacedXML, `tcMar`) {
+		t.Fatalf("expected cell-level tcMar in document.xml, got: %s", replacedXML)
+	}
+	if !strings.Contains(replacedXML, `extNode`) {
+		t.Fatalf("expected unknown node preserved in document.xml, got: %s", replacedXML)
+	}
+
+	if err := roundTripOne(replacedPath, outPath); err != nil {
+		t.Fatal(err)
+	}
+	issues, err := compareDocxStructure(replacedPath, outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(issues) != 0 {
+		t.Fatalf("unexpected structural issues after table default padding/layout update and round-trip: %v", issues)
+	}
+}
+
 func createSampleDocxWithUnknownNodes(path string) error {
 	base := docx.New().WithDefaultTheme().WithA4Page()
 	base.AddParagraph().AddText("roundtrip")
