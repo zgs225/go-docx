@@ -193,7 +193,8 @@ func (w *WTableRow) Justification(val string) *WTableRow {
 
 // Shade allows to set cell's shade
 func (c *WTableCell) Shade(val, color, fill string) *WTableCell {
-	c.TableCellProperties.Shade = &Shade{
+	tcpr := c.ensureCellProperties()
+	tcpr.Shade = &Shade{
 		Val:   val,
 		Color: color,
 		Fill:  fill,
@@ -203,17 +204,102 @@ func (c *WTableCell) Shade(val, color, fill string) *WTableCell {
 
 // Padding allows to set cell's inner spacing (CSS-like top/right/bottom/left), unit: twips.
 func (c *WTableCell) Padding(top, right, bottom, left int64) *WTableCell {
+	tcpr := c.ensureCellProperties()
+	if tcpr.Margins == nil {
+		tcpr.Margins = &WTableCellMargins{}
+	}
+	tcpr.Margins.Top = &WTableCellMargin{W: top, Type: "dxa"}
+	tcpr.Margins.Right = &WTableCellMargin{W: right, Type: "dxa"}
+	tcpr.Margins.Bottom = &WTableCellMargin{W: bottom, Type: "dxa"}
+	tcpr.Margins.Left = &WTableCellMargin{W: left, Type: "dxa"}
+	return c
+}
+
+// SetColSpan sets the horizontal span for current cell.
+// cols <= 1 clears gridSpan and restores default single-column behavior.
+func (c *WTableCell) SetColSpan(cols int) *WTableCell {
+	tcpr := c.ensureCellProperties()
+	if cols <= 1 {
+		tcpr.GridSpan = nil
+		return c
+	}
+	tcpr.GridSpan = &WGridSpan{Val: cols}
+	return c
+}
+
+// SetRowSpanRestart starts a vertical merge group at current cell.
+func (c *WTableCell) SetRowSpanRestart() *WTableCell {
+	c.ensureCellProperties().VMerge = &WvMerge{Val: "restart"}
+	return c
+}
+
+// SetRowSpanContinue marks current cell as a continuation of vertical merge.
+func (c *WTableCell) SetRowSpanContinue() *WTableCell {
+	c.ensureCellProperties().VMerge = &WvMerge{}
+	return c
+}
+
+// ClearRowSpan removes vertical merge setting from current cell.
+func (c *WTableCell) ClearRowSpan() *WTableCell {
+	c.ensureCellProperties().VMerge = nil
+	return c
+}
+
+// SetCellBorderTop sets top border for current cell.
+func (c *WTableCell) SetCellBorderTop(val string, size, space int, color string) *WTableCell {
+	c.ensureCellBorders().Top = &WTableBorder{Val: val, Size: size, Space: space, Color: color}
+	return c
+}
+
+// SetCellBorderRight sets right border for current cell.
+func (c *WTableCell) SetCellBorderRight(val string, size, space int, color string) *WTableCell {
+	c.ensureCellBorders().Right = &WTableBorder{Val: val, Size: size, Space: space, Color: color}
+	return c
+}
+
+// SetCellBorderBottom sets bottom border for current cell.
+func (c *WTableCell) SetCellBorderBottom(val string, size, space int, color string) *WTableCell {
+	c.ensureCellBorders().Bottom = &WTableBorder{Val: val, Size: size, Space: space, Color: color}
+	return c
+}
+
+// SetCellBorderLeft sets left border for current cell.
+func (c *WTableCell) SetCellBorderLeft(val string, size, space int, color string) *WTableCell {
+	c.ensureCellBorders().Left = &WTableBorder{Val: val, Size: size, Space: space, Color: color}
+	return c
+}
+
+// SetCellBordersSame sets all four borders to the same style.
+func (c *WTableCell) SetCellBordersSame(val string, size, space int, color string) *WTableCell {
+	c.SetCellBorderTop(val, size, space, color)
+	c.SetCellBorderRight(val, size, space, color)
+	c.SetCellBorderBottom(val, size, space, color)
+	c.SetCellBorderLeft(val, size, space, color)
+	return c
+}
+
+// ClearCellBorders removes tcBorders from current cell.
+func (c *WTableCell) ClearCellBorders() *WTableCell {
+	c.ensureCellProperties().TableBorders = nil
+	return c
+}
+
+func (c *WTableCell) ensureCellBorders() *WTableBorders {
+	tcpr := c.ensureCellProperties()
+	if tcpr.TableBorders == nil {
+		tcpr.TableBorders = &WTableBorders{}
+	}
+	return tcpr.TableBorders
+}
+
+func (c *WTableCell) ensureCellProperties() *WTableCellProperties {
 	if c.TableCellProperties == nil {
 		c.TableCellProperties = &WTableCellProperties{}
+		if len(c.ordered) > 0 {
+			c.ordered = append([]interface{}{c.TableCellProperties}, c.ordered...)
+		}
 	}
-	if c.TableCellProperties.Margins == nil {
-		c.TableCellProperties.Margins = &WTableCellMargins{}
-	}
-	c.TableCellProperties.Margins.Top = &WTableCellMargin{W: top, Type: "dxa"}
-	c.TableCellProperties.Margins.Right = &WTableCellMargin{W: right, Type: "dxa"}
-	c.TableCellProperties.Margins.Bottom = &WTableCellMargin{W: bottom, Type: "dxa"}
-	c.TableCellProperties.Margins.Left = &WTableCellMargin{W: left, Type: "dxa"}
-	return c
+	return c.TableCellProperties
 }
 
 // APITableBorderColors customizable param

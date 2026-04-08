@@ -124,6 +124,30 @@ func main() {
 }
 ```
 
+### Table Cell Span / Border
+```go
+package main
+
+import "github.com/zgs225/go-docx"
+
+func main() {
+	doc := docx.New().WithDefaultTheme()
+	tbl := doc.AddTable(2, 2, 0, nil)
+
+	// ColSpan in one row
+	tbl.TableRows[0].TableCells[0].SetColSpan(2)
+
+	// RowSpan across two rows (explicit restart/continue)
+	tbl.TableRows[0].TableCells[1].SetRowSpanRestart()
+	tbl.TableRows[1].TableCells[1].SetRowSpanContinue()
+
+	// Cell border set / clear
+	cell := tbl.TableRows[0].TableCells[0]
+	cell.SetCellBordersSame("single", 8, 0, "000000")
+	cell.ClearCellBorders()
+}
+```
+
 ### Replace Text / Placeholder
 ```go
 package main

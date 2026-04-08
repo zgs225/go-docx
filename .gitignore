@@ -1,5 +1,6 @@
 docxlib
 .vscode/
 *.docx
+!testdata/roundtrip_unknown_nodes/sample_unknown.docx
 /*.xml
 .DS_Store

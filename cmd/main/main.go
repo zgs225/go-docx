@@ -131,6 +131,24 @@ func main() {
 			}
 		}
 		tbl2.TableRows[0].TableCells[0].Shade("clear", "auto", "E7E6E6")
+		// Demo: table span + border APIs
+		tbl2.TableRows[2].TableCells[0].SetColSpan(2)
+		tbl2.TableRows[0].TableCells[1].SetRowSpanRestart()
+		tbl2.TableRows[1].TableCells[1].SetRowSpanContinue()
+		tbl2.TableRows[0].TableCells[0].SetCellBordersSame("single", 8, 0, "000000")
+		tbl2.TableRows[2].TableCells[1].SetCellBordersSame("single", 8, 0, "000000").ClearCellBorders()
+
+		// Demo: replacement APIs
+		w.AddParagraph().AddText("Hello {{name}}")
+		err = w.ReplacePlaceholder(map[string]string{"name": "Codex"})
+		if err != nil {
+			panic(err)
+		}
+		// no-op replacement to demonstrate field-code replacement switch
+		err = w.ReplaceText("MERGEFIELD", "MERGEFIELD", docx.WithFieldCodeReplacement(true))
+		if err != nil {
+			panic(err)
+		}
 
 		p := w.AddParagraph().Justification("center")
 		p.AddText("测试 AutoShape w:ln").Size("44")
