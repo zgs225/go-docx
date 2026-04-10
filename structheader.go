@@ -176,6 +176,12 @@ func ensureXMLNS(attrs []xml.Attr, prefix, uri string) []xml.Attr {
 		if attr.Name.Space == "" && attr.Name.Local == "xmlns:"+prefix {
 			return attrs
 		}
+		if attr.Name.Space == "_xmlns" && attr.Name.Local == prefix {
+			return attrs
+		}
+		if attr.Name.Space == "" && attr.Name.Local == "_xmlns:"+prefix {
+			return attrs
+		}
 	}
 	return append(attrs, xml.Attr{
 		Name:  xml.Name{Local: "xmlns:" + prefix},
@@ -184,6 +190,14 @@ func ensureXMLNS(attrs []xml.Attr, prefix, uri string) []xml.Attr {
 }
 
 func normalizeRootAttr(attr xml.Attr) xml.Attr {
+	if attr.Name.Space == "_xmlns" {
+		attr.Name = xml.Name{Local: "xmlns:" + attr.Name.Local}
+		return attr
+	}
+	if attr.Name.Space == "" && strings.HasPrefix(attr.Name.Local, "_xmlns:") {
+		attr.Name = xml.Name{Local: "xmlns:" + strings.TrimPrefix(attr.Name.Local, "_xmlns:")}
+		return attr
+	}
 	if attr.Name.Space == "xmlns" {
 		attr.Name = xml.Name{Local: "xmlns:" + attr.Name.Local}
 	}

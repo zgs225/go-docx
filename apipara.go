@@ -57,6 +57,20 @@ func (p *Paragraph) Justification(val string) *Paragraph {
 		p.Properties = &ParagraphProperties{}
 	}
 	p.Properties.Justification = &Justification{Val: val}
+	if len(p.ordered) > 0 {
+		propIdx := -1
+		for i, item := range p.ordered {
+			if _, ok := item.(*ParagraphProperties); ok {
+				propIdx = i
+				break
+			}
+		}
+		if propIdx >= 0 {
+			p.ordered[propIdx] = p.Properties
+		} else {
+			p.ordered = append([]interface{}{p.Properties}, p.ordered...)
+		}
+	}
 	return p
 }
 

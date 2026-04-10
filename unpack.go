@@ -62,6 +62,14 @@ func unpack(zipReader *zip.Reader) (docx *Docx, err error) {
 			}
 			continue
 		}
+		if f.Name == "word/settings.xml" {
+			err = docx.parseSettingsFile(f)
+			if err != nil {
+				return
+			}
+			docx.tmpfslst = append(docx.tmpfslst, f.Name)
+			continue
+		}
 		if strings.HasPrefix(f.Name, MEDIA_FOLDER) {
 			err = docx.parseMedia(f)
 			if err != nil {
@@ -180,38 +188,65 @@ func (f *Docx) parseHeaderFooterParts(headerFiles, footerFiles []*zip.File) erro
 		parsedFooters[strings.TrimPrefix(zf.Name, "word/")] = ft
 	}
 
-	mainSect := f.ensureMainSectPr(false)
-	if mainSect == nil {
+	sections := f.allSectionsInOrder()
+	if len(sections) == 0 {
 		return nil
 	}
-	for _, ref := range mainSect.HeaderRefs {
-		if ref == nil || ref.RID == "" {
-			continue
+	for _, sect := range sections {
+		for _, ref := range sect.HeaderRefs {
+			if ref == nil || ref.RID == "" {
+				continue
+			}
+			kind, ok := headerKindFromRefType(ref.Type)
+			if !ok {
+				continue
+			}
+			rel := f.findRelationshipByID(ref.RID)
+			if rel == nil {
+				continue
+			}
+			h := parsedHeaders[normalizeRelTarget(rel.Target)]
+			if h == nil {
+				continue
+			}
+			f.setSectionHeaderObject(sect, kind, h)
 		}
-		rel := f.findRelationshipByID(ref.RID)
-		if rel == nil {
-			continue
+		for _, ref := range sect.FooterRefs {
+			if ref == nil || ref.RID == "" {
+				continue
+			}
+			kind, ok := footerKindFromRefType(ref.Type)
+			if !ok {
+				continue
+			}
+			rel := f.findRelationshipByID(ref.RID)
+			if rel == nil {
+				continue
+			}
+			ft := parsedFooters[normalizeRelTarget(rel.Target)]
+			if ft == nil {
+				continue
+			}
+			f.setSectionFooterObject(sect, kind, ft)
 		}
-		h := parsedHeaders[normalizeRelTarget(rel.Target)]
-		if h == nil {
-			continue
-		}
-		f.headers[normalizeHeaderKind(HeaderKind(ref.Type))] = h
 	}
-	for _, ref := range mainSect.FooterRefs {
-		if ref == nil || ref.RID == "" {
-			continue
-		}
-		rel := f.findRelationshipByID(ref.RID)
-		if rel == nil {
-			continue
-		}
-		ft := parsedFooters[normalizeRelTarget(rel.Target)]
-		if ft == nil {
-			continue
-		}
-		f.footers[normalizeFooterKind(FooterKind(ref.Type))] = ft
+	f.syncLegacyMainSectionMaps()
+	return nil
+}
+
+func (f *Docx) parseSettingsFile(file *zip.File) error {
+	rc, err := file.Open()
+	if err != nil {
+		return err
 	}
+	defer rc.Close()
+	var s Settings
+	if err := xml.NewDecoder(rc).Decode(&s); err != nil {
+		return err
+	}
+	f.settings = &s
+	f.settingsExists = true
+	f.settingsDirty = false
 	return nil
 }
 

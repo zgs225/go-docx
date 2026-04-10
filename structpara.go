@@ -44,6 +44,7 @@ type ParagraphProperties struct {
 	SnapToGrid     *SnapToGrid
 	Kinsoku        *Kinsoku
 	OverflowPunct  *OverflowPunct
+	SectPr         *SectPr `xml:"w:sectPr,omitempty"`
 
 	RunProperties *RunProperties
 }
@@ -163,6 +164,13 @@ func (p *ParagraphProperties) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) e
 					return err
 				}
 				p.OverflowPunct = &value
+			case "sectPr":
+				var value SectPr
+				err = d.DecodeElement(&value, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+				p.SectPr = &value
 
 			default:
 				err = d.Skip() // skip unsupported tags
@@ -328,6 +336,7 @@ func (p *Paragraph) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 }
 
 // MarshalXML keeps paragraph child order stable for round-trip writeback.
+//
 //nolint:dupl
 func (p *Paragraph) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	start.Name = xml.Name{Local: "w:p"}

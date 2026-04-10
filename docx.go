@@ -36,9 +36,15 @@ import (
 type Docx struct {
 	Document Document // Document is word/document.xml
 
-	docRelation Relationships // docRelation is word/_rels/document.xml.rels
-	headers     map[HeaderKind]*Header
-	footers     map[FooterKind]*Footer
+	docRelation        Relationships // docRelation is word/_rels/document.xml.rels
+	headers            map[HeaderKind]*Header
+	footers            map[FooterKind]*Footer
+	sectionRefs        map[*SectPr]*sectionHeaderFooterRefs
+	sectionHeaderDirty map[*SectPr]map[HeaderKind]bool
+	sectionFooterDirty map[*SectPr]map[FooterKind]bool
+	settings           *Settings
+	settingsExists     bool
+	settingsDirty      bool
 
 	media        []Media
 	mediaNameIdx map[string]int

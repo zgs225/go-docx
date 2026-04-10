@@ -182,6 +182,57 @@ _ = doc.ReplaceText("name", "Alice",
 
 > Safety note: `TOC` / `PAGEREF` are not in default whitelist.
 
+### Header / Footer / Page Number Alignment
+```go
+package main
+
+import "github.com/zgs225/go-docx"
+
+func main() {
+	doc := docx.New().WithDefaultTheme().WithA4Page()
+
+	// Recommended order: set content first, then alignment/page number.
+	_ = doc.SetHeaderText(docx.HeaderDefault, "Quarterly Report")
+	_ = doc.SetHeaderAlignment(docx.HeaderDefault, "center")
+
+	_ = doc.SetFooterText(docx.FooterDefault, "Page ")
+	_ = doc.AddPageNumberAligned(docx.PageNumberArabic, "end") // default footer
+
+	// You can also align existing footer paragraphs directly.
+	_ = doc.SetFooterAlignment(docx.FooterDefault, "end")
+}
+```
+
+> Alignment whitelist: `start|center|end|both|distribute`.
+
+### Multi-Section Header / Footer / Page Number
+```go
+package main
+
+import "github.com/zgs225/go-docx"
+
+func main() {
+	doc := docx.New().WithDefaultTheme().WithA4Page()
+
+	// section index is document-order, 0-based.
+	_ = doc.SetSectionTitlePage(0, true) // enable "different first page" for section 0
+	_ = doc.SetEvenAndOddHeaders(true)   // requires existing word/settings.xml in input docx
+
+	_ = doc.SetSectionHeaderText(0, docx.HeaderDefault, "Section 1 Header")
+	_ = doc.SetSectionHeaderText(0, docx.HeaderFirst, "Section 1 First-Page Header")
+	_ = doc.SetSectionFooterText(0, docx.FooterDefault, "S1 Page ")
+	_ = doc.AddSectionPageNumberAligned(0, docx.PageNumberArabic, "end")
+
+	_ = doc.SetSectionFooterText(1, docx.FooterDefault, "S2 Default Page ")
+	_ = doc.AddSectionPageNumberAligned(1, docx.PageNumberArabic, "end")
+	_ = doc.SetSectionFooterText(1, docx.FooterEven, "S2 Even Page ")
+	_ = doc.AddSectionPageNumberAligned(1, docx.PageNumberRomanUpper, "center", docx.FooterEven)
+}
+```
+
+> Without `SetSectionTitlePage(true)`, `first` headers/footers fall back to `default`.
+> Without `SetEvenAndOddHeaders(true)`, `even` headers/footers fall back to `default`.
+
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE)

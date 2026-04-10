@@ -29,7 +29,9 @@ type SectPr struct {
 	XMLName    xml.Name           `xml:"w:sectPr,omitempty"` // properties of the document, including paper size
 	HeaderRefs []*HeaderReference `xml:"w:headerReference,omitempty"`
 	FooterRefs []*FooterReference `xml:"w:footerReference,omitempty"`
+	TitlePg    *OnOff             `xml:"w:titlePg,omitempty"`
 	PgSz       *PgSz              `xml:"w:pgSz,omitempty"`
+	PgNumType  *PgNumType         `xml:"w:pgNumType,omitempty"`
 	PgMar      *PgMar             `xml:"w:pgMar,omitempty"`
 	Cols       *Cols              `xml:"w:cols,omitempty"`
 	DocGrid    *DocGrid           `xml:"w:docGrid,omitempty"`
@@ -52,6 +54,11 @@ type FooterReference struct {
 type PgSz struct {
 	W int `xml:"w:w,attr"` // width of paper
 	H int `xml:"w:h,attr"` // high of paper
+}
+
+// PgNumType defines page-number formatting for a section.
+type PgNumType struct {
+	Fmt string `xml:"w:fmt,attr,omitempty"`
 }
 
 // PgMar show the page margin
@@ -118,6 +125,22 @@ func (sect *SectPr) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 				}
 				sect.PgSz = &value
 				sect.ordered = append(sect.ordered, sect.PgSz)
+			case "titlePg":
+				var value OnOff
+				err = d.DecodeElement(&value, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+				sect.TitlePg = &value
+				sect.ordered = append(sect.ordered, sect.TitlePg)
+			case "pgNumType":
+				var value PgNumType
+				err = d.DecodeElement(&value, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+				sect.PgNumType = &value
+				sect.ordered = append(sect.ordered, sect.PgNumType)
 			case "pgMar":
 				var value PgMar
 				err = d.DecodeElement(&value, &tt)
@@ -170,6 +193,20 @@ func (sect *SectPr) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 				if err := e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "w:pgSz"}}); err != nil {
 					return err
 				}
+			case *OnOff:
+				if v == sect.TitlePg {
+					if err := e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "w:titlePg"}}); err != nil {
+						return err
+					}
+					continue
+				}
+				if err := e.Encode(v); err != nil {
+					return err
+				}
+			case *PgNumType:
+				if err := e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "w:pgNumType"}}); err != nil {
+					return err
+				}
 			case *PgMar:
 				if err := e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "w:pgMar"}}); err != nil {
 					return err
@@ -206,8 +243,18 @@ func (sect *SectPr) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 			return err
 		}
 	}
+	if sect.TitlePg != nil {
+		if err := e.EncodeElement(sect.TitlePg, xml.StartElement{Name: xml.Name{Local: "w:titlePg"}}); err != nil {
+			return err
+		}
+	}
 	if sect.PgSz != nil {
 		if err := e.EncodeElement(sect.PgSz, xml.StartElement{Name: xml.Name{Local: "w:pgSz"}}); err != nil {
+			return err
+		}
+	}
+	if sect.PgNumType != nil {
+		if err := e.EncodeElement(sect.PgNumType, xml.StartElement{Name: xml.Name{Local: "w:pgNumType"}}); err != nil {
 			return err
 		}
 	}
@@ -251,6 +298,21 @@ func (pgsz *PgSz) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	}
 	// Consume the end element
 	_, err = d.Token()
+	return err
+}
+
+// UnmarshalXML ...
+func (p *PgNumType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		case "fmt":
+			p.Fmt = attr.Value
+		default:
+			// ignore other attributes now
+		}
+	}
+	// Consume the end element.
+	_, err := d.Token()
 	return err
 }
 

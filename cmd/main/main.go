@@ -154,18 +154,65 @@ func main() {
 			panic(err)
 		}
 
-		// Demo: header/footer/page number APIs
-		err = w.SetHeaderText(docx.HeaderDefault, "Demo Header")
-		if err != nil {
-			panic(err)
+		// Demo: multi-section header/footer/page number APIs
+		if w.SectionCount() < 2 {
+			secBreak := w.AddParagraph()
+			secBreak.AddText("Section 1 Ends Here")
+			secBreak.Properties = &docx.ParagraphProperties{
+				SectPr: &docx.SectPr{
+					PgSz: &docx.PgSz{W: 11906, H: 16838},
+				},
+			}
 		}
-		err = w.SetFooterText(docx.FooterDefault, "Page: ")
-		if err != nil {
-			panic(err)
-		}
-		err = w.AddPageNumber(docx.PageNumberArabic)
-		if err != nil {
-			panic(err)
+		if w.SectionCount() >= 2 {
+			err = w.SetSectionTitlePage(0, true)
+			if err != nil {
+				panic(err)
+			}
+			// SetEvenAndOddHeaders requires existing word/settings.xml in the source document.
+			if err = w.SetEvenAndOddHeaders(true); err != nil {
+				fmt.Printf("Skip even/odd header switch: %v\n", err)
+			}
+			err = w.SetSectionHeaderText(0, docx.HeaderDefault, "Demo Header S1 Default")
+			if err != nil {
+				panic(err)
+			}
+			err = w.SetSectionHeaderText(0, docx.HeaderFirst, "Demo Header S1 First")
+			if err != nil {
+				panic(err)
+			}
+			err = w.SetSectionHeaderAlignment(0, docx.HeaderDefault, "center")
+			if err != nil {
+				panic(err)
+			}
+			err = w.SetSectionHeaderAlignment(0, docx.HeaderFirst, "center")
+			if err != nil {
+				panic(err)
+			}
+			err = w.SetSectionFooterText(0, docx.FooterDefault, "S1 Page: ")
+			if err != nil {
+				panic(err)
+			}
+			err = w.AddSectionPageNumberAligned(0, docx.PageNumberArabic, "end")
+			if err != nil {
+				panic(err)
+			}
+			err = w.SetSectionFooterText(1, docx.FooterDefault, "S2 Default Page: ")
+			if err != nil {
+				panic(err)
+			}
+			err = w.AddSectionPageNumberAligned(1, docx.PageNumberArabic, "end")
+			if err != nil {
+				panic(err)
+			}
+			err = w.SetSectionFooterText(1, docx.FooterEven, "S2 Even Page: ")
+			if err != nil {
+				panic(err)
+			}
+			err = w.AddSectionPageNumberAligned(1, docx.PageNumberRomanUpper, "center", docx.FooterEven)
+			if err != nil {
+				panic(err)
+			}
 		}
 
 		p := w.AddParagraph().Justification("center")
