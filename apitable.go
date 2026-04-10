@@ -28,6 +28,7 @@ import (
 // TableLayoutMode controls table layout strategy.
 type TableLayoutMode string
 
+// TableLayoutMode values describe how Word sizes table columns.
 const (
 	TableLayoutModeFixed   TableLayoutMode = "fixed"
 	TableLayoutModeAutofit TableLayoutMode = "autofit"

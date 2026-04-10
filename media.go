@@ -20,7 +20,7 @@
 
 package docx
 
-//nolint:revive,stylecheck
+//nolint:revive
 const MEDIA_FOLDER = `word/media/`
 
 // Media is in word/media

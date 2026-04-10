@@ -319,6 +319,41 @@ func TestTableSetRowLayoutOptionsAPI(t *testing.T) {
 	}
 }
 
+func TestTableSetRowLayoutClearSwitchKeepsExistingJustification(t *testing.T) {
+	d := New().WithDefaultTheme()
+	tbl := d.AddTable(1, 1, 0, nil)
+
+	repeatTrue := true
+	tbl.SetRowLayout(0, RowLayoutOptions{
+		Justification: "center",
+		HeightTwips:   900,
+		HeightRule:    "exact",
+		RepeatHeader:  &repeatTrue,
+	})
+	row := tbl.TableRows[0]
+	if row.TableRowProperties == nil || row.TableRowProperties.Justification == nil || row.TableRowProperties.Justification.Val != "center" {
+		t.Fatalf("expected initial row justification center, got: %#v", row.TableRowProperties)
+	}
+	if row.TableRowProperties.RepeatHeader == nil || row.TableRowProperties.TableRowHeight == nil {
+		t.Fatalf("expected initial repeat header and height, got: %#v", row.TableRowProperties)
+	}
+
+	repeatFalse := false
+	tbl.SetRowLayout(0, RowLayoutOptions{
+		HeightTwips:  0,
+		RepeatHeader: &repeatFalse,
+	})
+	if row.TableRowProperties.RepeatHeader != nil {
+		t.Fatal("expected repeat header cleared")
+	}
+	if row.TableRowProperties.TableRowHeight != nil {
+		t.Fatal("expected trHeight cleared")
+	}
+	if row.TableRowProperties.Justification == nil || row.TableRowProperties.Justification.Val != "center" {
+		t.Fatalf("expected existing row justification preserved, got: %#v", row.TableRowProperties.Justification)
+	}
+}
+
 func TestTableRepeatHeaderAndLayoutRoundTripStable(t *testing.T) {
 	d := New().WithDefaultTheme()
 	tbl := d.AddTable(2, 2, 0, nil)

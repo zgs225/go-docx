@@ -133,89 +133,48 @@ func (f *Docx) syncHeaderFooterForPack(files map[string]io.Reader) ([]string, []
 			}
 		}
 
-		hrefs := make([]*HeaderReference, 0, len(existingHeaderKnown)+len(existingHeaderUnknown))
-		frefs := make([]*FooterReference, 0, len(existingFooterKnown)+len(existingFooterUnknown))
-
-		for _, kind := range headerKindsInOrder() {
-			h := f.getSectionHeaderObject(sect, kind)
-			existing := existingHeaderKnown[kind]
-			if h == nil {
-				if existing != nil {
-					hrefs = append(hrefs, existing)
-				}
-				continue
-			}
-			h.file = f
-			sig, err := xmlPartSignature(h)
-			if err != nil {
-				return nil, nil, err
-			}
-			path := ""
-			currentRID := ""
-			if existing != nil {
-				currentRID = existing.RID
-				if !f.isSectionHeaderDirty(sect, kind) {
-					if rel := f.findRelationshipByID(existing.RID); rel != nil {
-						path = "word/" + normalizeRelTarget(rel.Target)
-					}
-				}
-			}
-			if target, ok := headerDedup[sig]; ok {
-				rid := f.ensureInternalPartRelation(REL_HEADER, target, currentRID)
-				hrefs = append(hrefs, &HeaderReference{Type: string(kind), RID: rid})
-				continue
-			}
-			if path == "" {
-				path = defaultHeaderPartPath(sectionIndex, kind, singleSection)
-				currentRID = ""
-			}
-			target := strings.TrimPrefix(path, "word/")
-			files[path] = marshaller{data: h}
-			headerPathSet[path] = struct{}{}
-			rid := f.ensureInternalPartRelation(REL_HEADER, target, currentRID)
-			hrefs = append(hrefs, &HeaderReference{Type: string(kind), RID: rid})
-			headerDedup[sig] = target
+		hrefs, syncErr := syncSectionPartRefs(
+			f,
+			sect,
+			sectionIndex,
+			singleSection,
+			headerKindsInOrder(),
+			existingHeaderKnown,
+			f.getSectionHeaderObject,
+			f.isSectionHeaderDirty,
+			headerDedup,
+			headerPathSet,
+			files,
+			REL_HEADER,
+			defaultHeaderPartPath,
+			func(kind HeaderKind, rid string) *HeaderReference {
+				return &HeaderReference{Type: string(kind), RID: rid}
+			},
+		)
+		if syncErr != nil {
+			return nil, nil, syncErr
 		}
 
-		for _, kind := range footerKindsInOrder() {
-			ft := f.getSectionFooterObject(sect, kind)
-			existing := existingFooterKnown[kind]
-			if ft == nil {
-				if existing != nil {
-					frefs = append(frefs, existing)
-				}
-				continue
-			}
-			ft.file = f
-			sig, err := xmlPartSignature(ft)
-			if err != nil {
-				return nil, nil, err
-			}
-			path := ""
-			currentRID := ""
-			if existing != nil {
-				currentRID = existing.RID
-				if !f.isSectionFooterDirty(sect, kind) {
-					if rel := f.findRelationshipByID(existing.RID); rel != nil {
-						path = "word/" + normalizeRelTarget(rel.Target)
-					}
-				}
-			}
-			if target, ok := footerDedup[sig]; ok {
-				rid := f.ensureInternalPartRelation(REL_FOOTER, target, currentRID)
-				frefs = append(frefs, &FooterReference{Type: string(kind), RID: rid})
-				continue
-			}
-			if path == "" {
-				path = defaultFooterPartPath(sectionIndex, kind, singleSection)
-				currentRID = ""
-			}
-			target := strings.TrimPrefix(path, "word/")
-			files[path] = marshaller{data: ft}
-			footerPathSet[path] = struct{}{}
-			rid := f.ensureInternalPartRelation(REL_FOOTER, target, currentRID)
-			frefs = append(frefs, &FooterReference{Type: string(kind), RID: rid})
-			footerDedup[sig] = target
+		frefs, syncErr := syncSectionPartRefs(
+			f,
+			sect,
+			sectionIndex,
+			singleSection,
+			footerKindsInOrder(),
+			existingFooterKnown,
+			f.getSectionFooterObject,
+			f.isSectionFooterDirty,
+			footerDedup,
+			footerPathSet,
+			files,
+			REL_FOOTER,
+			defaultFooterPartPath,
+			func(kind FooterKind, rid string) *FooterReference {
+				return &FooterReference{Type: string(kind), RID: rid}
+			},
+		)
+		if syncErr != nil {
+			return nil, nil, syncErr
 		}
 
 		hrefs = append(hrefs, existingHeaderUnknown...)
@@ -234,6 +193,110 @@ func (f *Docx) syncHeaderFooterForPack(files map[string]io.Reader) ([]string, []
 	sort.Strings(headerPaths)
 	sort.Strings(footerPaths)
 	return headerPaths, footerPaths, nil
+}
+
+type sectionPackPart interface {
+	setDocxFile(*Docx)
+}
+
+type sectionPackRef interface {
+	getRID() string
+}
+
+func (h *Header) setDocxFile(f *Docx) {
+	h.file = f
+}
+
+func (ftr *Footer) setDocxFile(f *Docx) {
+	ftr.file = f
+}
+
+func (r *HeaderReference) getRID() string {
+	if r == nil {
+		return ""
+	}
+	return r.RID
+}
+
+func (r *FooterReference) getRID() string {
+	if r == nil {
+		return ""
+	}
+	return r.RID
+}
+
+func syncSectionPartRefs[
+	K ~string,
+	P interface {
+		sectionPackPart
+		comparable
+	},
+	R interface {
+		sectionPackRef
+		comparable
+	},
+](
+	f *Docx,
+	sect *SectPr,
+	sectionIndex int,
+	singleSection bool,
+	kinds []K,
+	existingKnown map[K]R,
+	getPart func(*SectPr, K) P,
+	isDirty func(*SectPr, K) bool,
+	dedup map[string]string,
+	pathSet map[string]struct{},
+	files map[string]io.Reader,
+	relType string,
+	defaultPath func(int, K, bool) string,
+	newRef func(K, string) R,
+) ([]R, error) {
+	var zeroPart P
+	var zeroRef R
+	refs := make([]R, 0, len(existingKnown))
+	for _, kind := range kinds {
+		part := getPart(sect, kind)
+		existing := existingKnown[kind]
+		if part == zeroPart {
+			if existing != zeroRef {
+				refs = append(refs, existing)
+			}
+			continue
+		}
+
+		part.setDocxFile(f)
+		sig, err := xmlPartSignature(part)
+		if err != nil {
+			return nil, err
+		}
+
+		path := ""
+		currentRID := ""
+		if existing != zeroRef {
+			currentRID = existing.getRID()
+			if !isDirty(sect, kind) {
+				if rel := f.findRelationshipByID(currentRID); rel != nil {
+					path = "word/" + normalizeRelTarget(rel.Target)
+				}
+			}
+		}
+		if target, ok := dedup[sig]; ok {
+			rid := f.ensureInternalPartRelation(relType, target, currentRID)
+			refs = append(refs, newRef(kind, rid))
+			continue
+		}
+		if path == "" {
+			path = defaultPath(sectionIndex, kind, singleSection)
+			currentRID = ""
+		}
+		target := strings.TrimPrefix(path, "word/")
+		files[path] = marshaller{data: part}
+		pathSet[path] = struct{}{}
+		rid := f.ensureInternalPartRelation(relType, target, currentRID)
+		refs = append(refs, newRef(kind, rid))
+		dedup[sig] = target
+	}
+	return refs, nil
 }
 
 func xmlPartSignature(v interface{}) (string, error) {

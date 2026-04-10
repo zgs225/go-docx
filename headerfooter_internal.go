@@ -32,11 +32,13 @@ func (f *Docx) appendBodyItemBeforeTrailingSectPr(item interface{}) {
 	n := len(items)
 	if n > 0 {
 		if _, ok := items[n-1].(*SectPr); ok {
-			f.Document.Body.Items = append(items[:n-1], item, items[n-1])
+			items = append(items[:n-1], item, items[n-1])
+			f.Document.Body.Items = items
 			return
 		}
 	}
-	f.Document.Body.Items = append(items, item)
+	items = append(items, item)
+	f.Document.Body.Items = items
 }
 
 func headerKindsInOrder() []HeaderKind {

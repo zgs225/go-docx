@@ -431,6 +431,8 @@ func applyAlignmentToTopLevelParagraphs(items []interface{}, align string) bool 
 
 func pageNumberFormat(style PageNumberStyle) string {
 	switch style {
+	case PageNumberArabic:
+		return "decimal"
 	case PageNumberRoman:
 		return "lowerRoman"
 	case PageNumberRomanUpper:
@@ -455,6 +457,8 @@ func addPageNumberField(p *Paragraph, style PageNumberStyle) {
 	}
 	instr := " PAGE "
 	switch style {
+	case PageNumberArabic:
+		instr = " PAGE "
 	case PageNumberRoman:
 		instr = " PAGE \\* roman "
 	case PageNumberRomanUpper:
@@ -493,6 +497,8 @@ func (f *Docx) sectionByIndexOrError(section int) (*SectPr, error) {
 func normalizeHeaderKind(kind HeaderKind) HeaderKind {
 	k := strings.ToLower(strings.TrimSpace(string(kind)))
 	switch HeaderKind(k) {
+	case HeaderDefault:
+		return HeaderDefault
 	case HeaderFirst:
 		return HeaderFirst
 	case HeaderEven:
@@ -505,6 +511,8 @@ func normalizeHeaderKind(kind HeaderKind) HeaderKind {
 func normalizeFooterKind(kind FooterKind) FooterKind {
 	k := strings.ToLower(strings.TrimSpace(string(kind)))
 	switch FooterKind(k) {
+	case FooterDefault:
+		return FooterDefault
 	case FooterFirst:
 		return FooterFirst
 	case FooterEven:

@@ -20,7 +20,7 @@
 
 package docx
 
-//nolint:revive,stylecheck
+//nolint:revive
 const (
 	HYPERLINK_STYLE = "a3"
 )

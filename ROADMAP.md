@@ -30,11 +30,14 @@
 - `Hyperlink` 内文本替换与样式保真策略（MVP）
 - `instrText` 可控替换（白名单 + 字段边界安全）
 - 表格增强第一批：`ColSpan` / `RowSpan(restart|continue)` / `CellBorder` API
+- 页眉/页脚/页码（单节 + 多 section 定位写入）
+- first/even 组合开关（`titlePg` + `evenAndOddHeaders`）
+- Header/Footer 共享对象 COW 隔离 + part 去重
+- 表格增强后续项：`SetRepeatHeader` + 统一布局控制 API（表格级/行级）
 - `rtcheck` 结构等价 CLI 与 CI job（GitHub Actions）
 
 ### 主要缺口
-- 缺少页眉/页脚/页码的统一读写入口
-- 表格能力仍有缺口（重复表头、统一布局控制 API 等）
+- 表格能力仍有缺口（自动跨行/跨列重排、`cantSplit` 等高级行属性）
 - 缺少样式体系与编号体系的管理 API（style/numbering）
 - 缺少脚注/尾注/批注/书签与域等引用体系能力
 - 缺少 SDT（内容控件）读写与数据填充能力
@@ -62,8 +65,8 @@
 |---|---|---|---:|---:|---:|---:|
 | 1 | 文档保真回写（未知节点保留 + round-trip） | 已完成 | 5 | 5 | 4 | 96 |
 | 2 | 模板文本替换（含跨 run） | 已完成 | 5 | 5 | 4 | 96 |
-| 3 | 页眉/页脚/页码 | 缺失 | 5 | 4 | 4 | 88 |
-| 4 | 表格高级能力（合并/边框/布局） | 部分支持 | 4 | 5 | 4 | 88 |
+| 3 | 页眉/页脚/页码 | 已完成 | 5 | 4 | 4 | 88 |
+| 4 | 表格高级能力（合并/边框/布局） | 已完成（Phase 1 范围） | 4 | 5 | 4 | 88 |
 | 5 | 样式与编号管理（styles/numbering） | 部分支持 | 4 | 5 | 3 | 84 |
 | 6 | 引用体系（脚注/尾注/批注/书签/域） | 部分支持（仅字段代码替换） | 3 | 5 | 3 | 76 |
 | 7 | SDT 内容控件 | 缺失 | 3 | 4 | 3 | 68 |
@@ -71,11 +74,11 @@
 | 9 | 大文档性能优化（内存/吞吐） | 缺失 | 3 | 3 | 2 | 56 |
 
 ### Top 优先级列表
-1. 页眉/页脚/页码（P0）
-2. 表格高级能力补全（P1）
-3. 样式与编号管理（P1）
-4. 引用体系补全（P2）
-5. SDT 与高级对象策略（P3）
+1. 样式与编号管理（P1）
+2. 引用体系补全（P2）
+3. SDT 与高级对象策略（P3）
+4. 图表/公式策略（P3）
+5. 大文档性能优化（P3）
 
 ## 分阶段计划（阶段 + 验收标准）
 
@@ -96,7 +99,7 @@
 
 ### Phase 1：高频业务能力
 
-状态：`进行中`
+状态：`已完成`
 
 已完成交付：
 - [x] `ReplaceText/ReplacePlaceholder`（跨 run）
@@ -108,11 +111,11 @@
 - [x] 字段边界安全（`begin/separate/end`）
 - [x] 表格增强第一批：`ColSpan` / `RowSpan` / `CellBorder`
 - [x] 表格增强后续项：重复表头（`SetRepeatHeader`）与统一布局控制 API
+- [x] Header/Footer 读写入口（单节 + 多 section）
+- [x] 页码字段插入 API（含对齐与样式映射）
+- [x] first/even 组合开关（`SetSectionTitlePage` / `SetEvenAndOddHeaders`）
+- [x] Header/Footer COW 隔离与 part 去重
 - [x] `main.go` 示例集成（Span/Border + Replace API）
-
-待完成交付：
-- [ ] Header/Footer 读写入口
-- [ ] 页码字段插入 API
 
 阶段验收标准：
 - 占位符替换在跨 run/混排场景稳定通过
@@ -163,14 +166,21 @@
 - `(*WTableCell).SetCellBorderTop/Right/Bottom/Left(...)`
 - `(*WTableCell).SetCellBordersSame(...)`
 - `(*WTableCell).ClearCellBorders()`
-
-### 待落地 API（规划）
-- `GetHeader(kind HeaderKind) (*Header, error)`
-- `GetFooter(kind FooterKind) (*Footer, error)`
 - `SetHeader(kind HeaderKind, header *Header) error`
 - `SetFooter(kind FooterKind, footer *Footer) error`
-- `AddPageNumber(style PageNumberStyle) error`
-- `SetRepeatHeader(row int, enable bool) error`
+- `AddPageNumber(style PageNumberStyle, kind ...FooterKind) error`
+- `AddPageNumberAligned(style PageNumberStyle, align string, kind ...FooterKind) error`
+- `SectionCount() int`
+- `SetSectionHeaderText(section int, kind HeaderKind, text string) error`
+- `SetSectionFooterText(section int, kind FooterKind, text string) error`
+- `AddSectionPageNumberAligned(section int, style PageNumberStyle, align string, kind ...FooterKind) error`
+- `SetSectionTitlePage(section int, enabled bool) error`
+- `SetEvenAndOddHeaders(enabled bool) error`
+- `SetRepeatHeader(row int, enable bool) *Table`
+- `SetLayout(opts TableLayoutOptions) *Table`
+- `SetRowLayout(row int, opts RowLayoutOptions) *Table`
+
+### 待落地 API（规划）
 - `ListStyles() []StyleInfo`
 - `EnsureStyle(style StyleDef) (styleID string, err error)`
 - `EnsureNumbering(def NumberingDef) (numID string, err error)`

@@ -879,66 +879,18 @@ type WTableCellMargin struct {
 
 // UnmarshalXML ...
 func (m *WTableCellMargins) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
-	for {
-		t, err := d.Token()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		if tt, ok := t.(xml.StartElement); ok {
-			switch tt.Name.Local {
-			case "top":
-				m.Top = new(WTableCellMargin)
-				err = d.DecodeElement(m.Top, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
-					return err
-				}
-			case "left":
-				m.Left = new(WTableCellMargin)
-				err = d.DecodeElement(m.Left, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
-					return err
-				}
-			case "bottom":
-				m.Bottom = new(WTableCellMargin)
-				err = d.DecodeElement(m.Bottom, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
-					return err
-				}
-			case "right":
-				m.Right = new(WTableCellMargin)
-				err = d.DecodeElement(m.Right, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
-					return err
-				}
-			case "start":
-				m.Start = new(WTableCellMargin)
-				err = d.DecodeElement(m.Start, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
-					return err
-				}
-			case "end":
-				m.End = new(WTableCellMargin)
-				err = d.DecodeElement(m.End, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
-					return err
-				}
-			default:
-				err = d.Skip() // skip unsupported tags
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
+	return unmarshalTableCellMargins(d, &m.Top, &m.Left, &m.Bottom, &m.Right, &m.Start, &m.End)
 }
 
 // UnmarshalXML ...
 func (m *WTableDefaultCellMargins) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
+	return unmarshalTableCellMargins(d, &m.Top, &m.Left, &m.Bottom, &m.Right, &m.Start, &m.End)
+}
+
+func unmarshalTableCellMargins(
+	d *xml.Decoder,
+	top, left, bottom, right, start, end **WTableCellMargin,
+) error {
 	for {
 		t, err := d.Token()
 		if err == io.EOF {
@@ -951,39 +903,27 @@ func (m *WTableDefaultCellMargins) UnmarshalXML(d *xml.Decoder, _ xml.StartEleme
 		if tt, ok := t.(xml.StartElement); ok {
 			switch tt.Name.Local {
 			case "top":
-				m.Top = new(WTableCellMargin)
-				err = d.DecodeElement(m.Top, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+				if err := decodeTableCellMarginElement(d, &tt, top); err != nil {
 					return err
 				}
 			case "left":
-				m.Left = new(WTableCellMargin)
-				err = d.DecodeElement(m.Left, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+				if err := decodeTableCellMarginElement(d, &tt, left); err != nil {
 					return err
 				}
 			case "bottom":
-				m.Bottom = new(WTableCellMargin)
-				err = d.DecodeElement(m.Bottom, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+				if err := decodeTableCellMarginElement(d, &tt, bottom); err != nil {
 					return err
 				}
 			case "right":
-				m.Right = new(WTableCellMargin)
-				err = d.DecodeElement(m.Right, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+				if err := decodeTableCellMarginElement(d, &tt, right); err != nil {
 					return err
 				}
 			case "start":
-				m.Start = new(WTableCellMargin)
-				err = d.DecodeElement(m.Start, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+				if err := decodeTableCellMarginElement(d, &tt, start); err != nil {
 					return err
 				}
 			case "end":
-				m.End = new(WTableCellMargin)
-				err = d.DecodeElement(m.End, &tt)
-				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+				if err := decodeTableCellMarginElement(d, &tt, end); err != nil {
 					return err
 				}
 			default:
@@ -993,6 +933,15 @@ func (m *WTableDefaultCellMargins) UnmarshalXML(d *xml.Decoder, _ xml.StartEleme
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func decodeTableCellMarginElement(d *xml.Decoder, start *xml.StartElement, dst **WTableCellMargin) error {
+	*dst = new(WTableCellMargin)
+	err := d.DecodeElement(*dst, start)
+	if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+		return err
 	}
 	return nil
 }

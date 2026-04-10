@@ -38,12 +38,14 @@ type SectPr struct {
 	ordered    []interface{}      // keeps known/unknown order for round-trip
 }
 
+// HeaderReference links a section to a header relationship.
 type HeaderReference struct {
 	XMLName xml.Name `xml:"w:headerReference,omitempty"`
 	Type    string   `xml:"w:type,attr,omitempty"`
 	RID     string   `xml:"r:id,attr,omitempty"`
 }
 
+// FooterReference links a section to a footer relationship.
 type FooterReference struct {
 	XMLName xml.Name `xml:"w:footerReference,omitempty"`
 	Type    string   `xml:"w:type,attr,omitempty"`

@@ -9,6 +9,7 @@ import (
 // HeaderKind identifies header reference type in sectPr.
 type HeaderKind string
 
+// HeaderKind values recognized in section properties.
 const (
 	HeaderDefault HeaderKind = "default"
 	HeaderFirst   HeaderKind = "first"
@@ -18,6 +19,7 @@ const (
 // FooterKind identifies footer reference type in sectPr.
 type FooterKind string
 
+// FooterKind values recognized in section properties.
 const (
 	FooterDefault FooterKind = "default"
 	FooterFirst   FooterKind = "first"
@@ -27,6 +29,7 @@ const (
 // PageNumberStyle defines PAGE field formatting switch.
 type PageNumberStyle string
 
+// PageNumberStyle values supported by Word PAGE fields.
 const (
 	PageNumberArabic      PageNumberStyle = "arabic"
 	PageNumberRoman       PageNumberStyle = "roman"
