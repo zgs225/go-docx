@@ -124,9 +124,25 @@ func main() {
 		w.AddParagraph()
 
 		tbl2 := w.AddTableTwips([]int64{2333, 2333, 2333}, []int64{2333, 2333}, 0, nil).Justification("center")
-		tbl2.SetDefaultCellPadding(120, 180, 240, 300).SetLayoutFixed().SetWidthTwips(4666)
+		tbl2.SetLayout(docx.TableLayoutOptions{
+			Mode:          docx.TableLayoutModeFixed,
+			WidthTwips:    4666,
+			Justification: "center",
+			DefaultCellPadding: &docx.TablePadding{
+				Top: 120, Right: 180, Bottom: 240, Left: 300,
+			},
+		})
+		tbl2.SetRepeatHeader(0, true)
 		for x, r := range tbl2.TableRows {
-			r.Justification("center")
+			if x > 0 {
+				r.SetLayout(docx.RowLayoutOptions{
+					Justification: "center",
+					HeightTwips:   1200,
+					HeightRule:    "atLeast",
+				})
+			} else {
+				r.Justification("center")
+			}
 			for y, c := range r.TableCells {
 				c.TableCellProperties.VAlign = &docx.WVerticalAlignment{Val: "center"}
 				c.AddParagraph().Justification("center").AddText(fmt.Sprintf("(%d, %d)", x, y))

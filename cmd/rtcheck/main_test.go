@@ -344,6 +344,95 @@ func TestTableDefaultPaddingAndLayoutThenRoundTripCheck(t *testing.T) {
 	}
 }
 
+func TestTableRepeatHeaderAndUnifiedLayoutThenRoundTripCheck(t *testing.T) {
+	tmp := t.TempDir()
+	inPath := filepath.Join(tmp, "table-input-repeat-header.docx")
+	replacedPath := filepath.Join(tmp, "table-updated-repeat-header.docx")
+	outPath := filepath.Join(tmp, "table-roundtrip-repeat-header.docx")
+
+	if err := createSampleDocxWithUnknownNodes(inPath); err != nil {
+		t.Fatal(err)
+	}
+
+	inFile, err := os.Open(inPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inFile.Close()
+
+	st, err := inFile.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := docx.Parse(inFile, st.Size())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var target *docx.Table
+	for _, item := range doc.Document.Body.Items {
+		tbl, ok := item.(*docx.Table)
+		if !ok {
+			continue
+		}
+		target = tbl
+		break
+	}
+	if target == nil {
+		t.Fatal("expected at least one table in sample")
+	}
+
+	target.SetLayout(docx.TableLayoutOptions{
+		Mode:          docx.TableLayoutModeFixed,
+		WidthTwips:    7200,
+		Justification: "center",
+		DefaultCellPadding: &docx.TablePadding{
+			Top: 120, Right: 180, Bottom: 240, Left: 300,
+		},
+	})
+	target.SetRepeatHeader(0, true)
+	target.SetRowLayout(0, docx.RowLayoutOptions{
+		Justification: "center",
+		HeightTwips:   900,
+		HeightRule:    "exact",
+	})
+
+	outFile, err := os.Create(replacedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := doc.WriteTo(outFile); err != nil {
+		_ = outFile.Close()
+		t.Fatal(err)
+	}
+	_ = outFile.Close()
+
+	replacedEntries, err := readZipEntries(replacedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacedXML := string(replacedEntries["word/document.xml"])
+	for _, needle := range []string{`tblHeader`, `trHeight`, `tblLayout`, `tblCellMar`} {
+		if !strings.Contains(replacedXML, needle) {
+			t.Fatalf("expected %q in document.xml, got: %s", needle, replacedXML)
+		}
+	}
+	if !strings.Contains(replacedXML, `extNode`) {
+		t.Fatalf("expected unknown node preserved in document.xml, got: %s", replacedXML)
+	}
+
+	if err := roundTripOne(replacedPath, outPath); err != nil {
+		t.Fatal(err)
+	}
+	issues, err := compareDocxStructure(replacedPath, outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(issues) != 0 {
+		t.Fatalf("unexpected structural issues after repeat-header/layout update and round-trip: %v", issues)
+	}
+}
+
 func TestHeaderFooterPageNumberThenRoundTripCheck(t *testing.T) {
 	tmp := t.TempDir()
 	inPath := filepath.Join(tmp, "hf-input.docx")

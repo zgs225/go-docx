@@ -575,9 +575,10 @@ func (w *WTableRow) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 
 // WTableRowProperties represents the properties of a row within a table.
 type WTableRowProperties struct {
-	XMLName        xml.Name `xml:"w:trPr,omitempty"`
-	TableRowHeight *WTableRowHeight
-	Justification  *Justification
+	XMLName        xml.Name         `xml:"w:trPr,omitempty"`
+	RepeatHeader   *OnOff           `xml:"w:tblHeader,omitempty"`
+	TableRowHeight *WTableRowHeight `xml:"w:trHeight,omitempty"`
+	Justification  *Justification   `xml:"w:jc,omitempty"`
 }
 
 // UnmarshalXML ...
@@ -593,6 +594,13 @@ func (t *WTableRowProperties) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) e
 
 		if tt, ok := tok.(xml.StartElement); ok {
 			switch tt.Name.Local {
+			case "tblHeader":
+				var value OnOff
+				err = d.DecodeElement(&value, &tt)
+				if err != nil && !strings.HasPrefix(err.Error(), "expected") {
+					return err
+				}
+				t.RepeatHeader = &value
 			case "trHeight":
 				th := new(WTableRowHeight)
 				for _, attr := range tt.Attr {

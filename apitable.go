@@ -22,7 +22,40 @@ package docx
 
 import (
 	"reflect"
+	"strings"
 )
+
+// TableLayoutMode controls table layout strategy.
+type TableLayoutMode string
+
+const (
+	TableLayoutModeFixed   TableLayoutMode = "fixed"
+	TableLayoutModeAutofit TableLayoutMode = "autofit"
+)
+
+// TablePadding describes table default cell padding in twips.
+type TablePadding struct {
+	Top    int64
+	Right  int64
+	Bottom int64
+	Left   int64
+}
+
+// TableLayoutOptions controls table-level layout options.
+type TableLayoutOptions struct {
+	Mode               TableLayoutMode
+	WidthTwips         int64
+	Justification      string
+	DefaultCellPadding *TablePadding
+}
+
+// RowLayoutOptions controls row-level layout options.
+type RowLayoutOptions struct {
+	Justification string
+	HeightTwips   int64
+	HeightRule    string
+	RepeatHeader  *bool
+}
 
 // AddTable add a new table to body by col*row
 //
@@ -166,48 +199,76 @@ func (f *Docx) AddTableTwips(
 //		both：两端对齐。
 //		distribute：分散对齐。
 func (t *Table) Justification(val string) *Table {
-	tp := t.ensureTableProperties()
-	if tp.Justification == nil {
-		tp.Justification = &Justification{Val: val}
-		return t
-	}
-	tp.Justification.Val = val
-	return t
+	return t.SetLayout(TableLayoutOptions{
+		WidthTwips:    t.currentWidthTwips(),
+		Justification: val,
+	})
 }
 
 // SetDefaultCellPadding sets table-level default cell padding (tblCellMar), unit: twips.
 func (t *Table) SetDefaultCellPadding(top, right, bottom, left int64) *Table {
-	tp := t.ensureTableProperties()
-	if tp.CellMargins == nil {
-		tp.CellMargins = &WTableDefaultCellMargins{}
-	}
-	tp.CellMargins.Top = &WTableCellMargin{W: top, Type: "dxa"}
-	tp.CellMargins.Right = &WTableCellMargin{W: right, Type: "dxa"}
-	tp.CellMargins.Bottom = &WTableCellMargin{W: bottom, Type: "dxa"}
-	tp.CellMargins.Left = &WTableCellMargin{W: left, Type: "dxa"}
-	return t
+	return t.SetLayout(TableLayoutOptions{
+		WidthTwips: t.currentWidthTwips(),
+		DefaultCellPadding: &TablePadding{
+			Top:    top,
+			Right:  right,
+			Bottom: bottom,
+			Left:   left,
+		},
+	})
 }
 
 // SetLayoutFixed sets table layout to fixed.
 func (t *Table) SetLayoutFixed() *Table {
-	t.ensureTableProperties().Layout = &WTableLayout{Type: "fixed"}
-	return t
+	return t.SetLayout(TableLayoutOptions{
+		Mode:       TableLayoutModeFixed,
+		WidthTwips: t.currentWidthTwips(),
+	})
 }
 
 // SetLayoutAutofit sets table layout to autofit.
 func (t *Table) SetLayoutAutofit() *Table {
-	t.ensureTableProperties().Layout = &WTableLayout{Type: "autofit"}
-	return t
+	return t.SetLayout(TableLayoutOptions{
+		Mode:       TableLayoutModeAutofit,
+		WidthTwips: t.currentWidthTwips(),
+	})
 }
 
 // SetWidthTwips sets table width in twips.
 func (t *Table) SetWidthTwips(width int64) *Table {
+	return t.SetLayout(TableLayoutOptions{WidthTwips: width})
+}
+
+// SetLayout applies unified table-level layout options.
+func (t *Table) SetLayout(opts TableLayoutOptions) *Table {
 	tp := t.ensureTableProperties()
-	if width <= 0 {
-		tp.Width = &WTableWidth{Type: "auto"}
-		return t
+	switch normalizeTableLayoutMode(opts.Mode) {
+	case TableLayoutModeFixed:
+		tp.Layout = &WTableLayout{Type: string(TableLayoutModeFixed)}
+	case TableLayoutModeAutofit:
+		tp.Layout = &WTableLayout{Type: string(TableLayoutModeAutofit)}
 	}
-	tp.Width = &WTableWidth{W: width, Type: "dxa"}
+	if opts.WidthTwips <= 0 {
+		tp.Width = &WTableWidth{Type: "auto"}
+	} else {
+		tp.Width = &WTableWidth{W: opts.WidthTwips, Type: "dxa"}
+	}
+	if strings.TrimSpace(opts.Justification) != "" {
+		if tp.Justification == nil {
+			tp.Justification = &Justification{Val: opts.Justification}
+		} else {
+			tp.Justification.Val = opts.Justification
+		}
+	}
+	if opts.DefaultCellPadding != nil {
+		if tp.CellMargins == nil {
+			tp.CellMargins = &WTableDefaultCellMargins{}
+		}
+		tp.CellMargins.Top = &WTableCellMargin{W: opts.DefaultCellPadding.Top, Type: "dxa"}
+		tp.CellMargins.Right = &WTableCellMargin{W: opts.DefaultCellPadding.Right, Type: "dxa"}
+		tp.CellMargins.Bottom = &WTableCellMargin{W: opts.DefaultCellPadding.Bottom, Type: "dxa"}
+		tp.CellMargins.Left = &WTableCellMargin{W: opts.DefaultCellPadding.Left, Type: "dxa"}
+	}
 	return t
 }
 
@@ -220,12 +281,121 @@ func (t *Table) SetWidthTwips(width int64) *Table {
 //		both：两端对齐。
 //		distribute：分散对齐。
 func (w *WTableRow) Justification(val string) *WTableRow {
-	if w.TableRowProperties.Justification == nil {
-		w.TableRowProperties.Justification = &Justification{Val: val}
-		return w
+	return w.SetLayout(RowLayoutOptions{
+		Justification: val,
+		HeightTwips:   w.currentHeightTwips(),
+		HeightRule:    w.currentHeightRule(),
+	})
+}
+
+// SetLayout applies unified row-level layout options.
+func (w *WTableRow) SetLayout(opts RowLayoutOptions) *WTableRow {
+	trpr := w.ensureRowProperties()
+	if opts.RepeatHeader != nil {
+		if *opts.RepeatHeader {
+			trpr.RepeatHeader = &OnOff{}
+		} else {
+			trpr.RepeatHeader = nil
+		}
 	}
-	w.TableRowProperties.Justification.Val = val
+	if opts.HeightTwips <= 0 {
+		trpr.TableRowHeight = nil
+	} else {
+		if trpr.TableRowHeight == nil {
+			trpr.TableRowHeight = &WTableRowHeight{}
+		}
+		trpr.TableRowHeight.Val = opts.HeightTwips
+		if normalized, ok := normalizeRowHeightRule(opts.HeightRule); ok {
+			trpr.TableRowHeight.Rule = normalized
+		}
+	}
+	if strings.TrimSpace(opts.Justification) != "" {
+		if trpr.Justification == nil {
+			trpr.Justification = &Justification{Val: opts.Justification}
+		} else {
+			trpr.Justification.Val = opts.Justification
+		}
+	}
 	return w
+}
+
+// SetRepeatHeader enables/disables repeat header on the target row.
+func (t *Table) SetRepeatHeader(row int, enable bool) *Table {
+	if row < 0 || row >= len(t.TableRows) {
+		return t
+	}
+	return t.SetRowLayout(row, RowLayoutOptions{
+		HeightTwips:  t.TableRows[row].currentHeightTwips(),
+		HeightRule:   t.TableRows[row].currentHeightRule(),
+		RepeatHeader: &enable,
+	})
+}
+
+// SetRowLayout applies row layout options on a target row.
+func (t *Table) SetRowLayout(row int, opts RowLayoutOptions) *Table {
+	if row < 0 || row >= len(t.TableRows) {
+		return t
+	}
+	t.TableRows[row].SetLayout(opts)
+	return t
+}
+
+func normalizeTableLayoutMode(mode TableLayoutMode) TableLayoutMode {
+	switch TableLayoutMode(strings.ToLower(strings.TrimSpace(string(mode)))) {
+	case TableLayoutModeFixed:
+		return TableLayoutModeFixed
+	case TableLayoutModeAutofit:
+		return TableLayoutModeAutofit
+	default:
+		return ""
+	}
+}
+
+func normalizeRowHeightRule(rule string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(rule)) {
+	case "atleast":
+		return "atLeast", true
+	case "exact":
+		return "exact", true
+	case "auto":
+		return "auto", true
+	default:
+		return "", false
+	}
+}
+
+func (t *Table) currentWidthTwips() int64 {
+	if t == nil || t.TableProperties == nil || t.TableProperties.Width == nil {
+		return 0
+	}
+	if strings.ToLower(strings.TrimSpace(t.TableProperties.Width.Type)) != "dxa" {
+		return 0
+	}
+	return t.TableProperties.Width.W
+}
+
+func (w *WTableRow) currentHeightTwips() int64 {
+	if w == nil || w.TableRowProperties == nil || w.TableRowProperties.TableRowHeight == nil {
+		return 0
+	}
+	return w.TableRowProperties.TableRowHeight.Val
+}
+
+func (w *WTableRow) ensureRowProperties() *WTableRowProperties {
+	if w.TableRowProperties == nil {
+		w.TableRowProperties = &WTableRowProperties{}
+		if len(w.ordered) > 0 {
+			w.ordered = append([]interface{}{w.TableRowProperties}, w.ordered...)
+		}
+	}
+	return w.TableRowProperties
+}
+
+func (w *WTableRow) currentHeightRule() string {
+	if w == nil || w.TableRowProperties == nil || w.TableRowProperties.TableRowHeight == nil {
+		return ""
+	}
+	return w.TableRowProperties.TableRowHeight.Rule
 }
 
 // Shade allows to set cell's shade

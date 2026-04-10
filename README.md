@@ -148,6 +148,36 @@ func main() {
 }
 ```
 
+### Table Repeat Header / Unified Layout
+```go
+package main
+
+import "github.com/zgs225/go-docx"
+
+func main() {
+	doc := docx.New().WithDefaultTheme()
+	tbl := doc.AddTable(2, 2, 0, nil)
+
+	// Table-level unified layout
+	tbl.SetLayout(docx.TableLayoutOptions{
+		Mode:          docx.TableLayoutModeFixed,
+		WidthTwips:    7200,
+		Justification: "center",
+		DefaultCellPadding: &docx.TablePadding{
+			Top: 120, Right: 180, Bottom: 240, Left: 300,
+		},
+	})
+
+	// Row-level layout + repeat header
+	tbl.SetRepeatHeader(0, true)
+	tbl.SetRowLayout(1, docx.RowLayoutOptions{
+		Justification: "center",
+		HeightTwips:   900,
+		HeightRule:    "atLeast",
+	})
+}
+```
+
 ### Replace Text / Placeholder
 ```go
 package main

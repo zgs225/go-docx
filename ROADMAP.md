@@ -107,12 +107,12 @@
 - [x] `instrText` 白名单（`FORMTEXT` / `MERGEFIELD`）
 - [x] 字段边界安全（`begin/separate/end`）
 - [x] 表格增强第一批：`ColSpan` / `RowSpan` / `CellBorder`
+- [x] 表格增强后续项：重复表头（`SetRepeatHeader`）与统一布局控制 API
 - [x] `main.go` 示例集成（Span/Border + Replace API）
 
 待完成交付：
 - [ ] Header/Footer 读写入口
 - [ ] 页码字段插入 API
-- [ ] 表格增强后续项（重复表头、统一布局控制）
 
 阶段验收标准：
 - 占位符替换在跨 run/混排场景稳定通过
