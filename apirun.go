@@ -54,10 +54,10 @@ func (r *Run) Shade(val, color, fill string) *Run {
 	return r
 }
 
-// Spacing allows to set run spacing
-func (r *Run) Spacing(line int) *Run {
+// Spacing allows to set run character spacing (w:rPr/w:spacing@w:val).
+func (r *Run) Spacing(val int) *Run {
 	r.RunProperties.Spacing = &Spacing{
-		Line: line,
+		Val: val,
 	}
 	return r
 }

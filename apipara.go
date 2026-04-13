@@ -74,6 +74,15 @@ func (p *Paragraph) Justification(val string) *Paragraph {
 	return p
 }
 
+// Spacing allows to set paragraph line spacing (w:pPr/w:spacing@w:line).
+func (p *Paragraph) Spacing(line int) *Paragraph {
+	if p.Properties == nil {
+		p.Properties = &ParagraphProperties{}
+	}
+	p.Properties.Spacing = &Spacing{Line: line}
+	return p
+}
+
 // AddPageBreaks adds a pagebreaks
 func (p *Paragraph) AddPageBreaks() *Run {
 	c := make([]interface{}, 1, 64)
